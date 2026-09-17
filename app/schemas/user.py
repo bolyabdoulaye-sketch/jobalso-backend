@@ -1,6 +1,6 @@
 ﻿import uuid
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from app.models.user import UserRole, RecruteurPersona
 
 
@@ -10,6 +10,12 @@ class UserCreate(BaseModel):
     role: UserRole
     persona: RecruteurPersona | None = None
     consent_accepted: bool
+
+    @model_validator(mode="after")
+    def check_persona_only_for_recruteur(self):
+        if self.role != UserRole.RECRUTEUR and self.persona is not None:
+            raise ValueError("Le persona ne peut etre defini que pour un compte recruteur")
+        return self
 
 
 class UserLogin(BaseModel):
