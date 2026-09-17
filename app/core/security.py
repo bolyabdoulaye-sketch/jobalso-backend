@@ -1,4 +1,5 @@
-﻿from datetime import datetime, timedelta
+﻿import secrets
+from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from jose import jwt
 
@@ -26,3 +27,8 @@ def decode_access_token(token: str) -> dict | None:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
     except jwt.JWTError:
         return None
+
+
+def generate_reset_token() -> str:
+    # JA-004 : token aleatoire, non predictible, pour le lien de reset
+    return secrets.token_urlsafe(32)

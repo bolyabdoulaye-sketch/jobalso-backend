@@ -1,11 +1,18 @@
-﻿from datetime import datetime
+﻿from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, EmailStr
 
 from app.api.deps import get_db
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    generate_reset_token,
+)
 from app.models.user import User
+from app.models.password_reset_token import PasswordResetToken
 from app.schemas.user import UserCreate, UserRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -13,12 +20,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    # JA-001 / JA-007 : le type de compte (candidat/recruteur) est fixe a l inscription
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email deja utilise")
 
-    # JA-009 : consentement Loi 25 obligatoire, case non pre-cochee cote front
     if not user_in.consent_accepted:
         raise HTTPException(status_code=400, detail="Consentement requis pour creer un compte")
 
@@ -49,3 +54,62 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
     access_token = create_access_token(subject=str(user.id))
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        # JA-004 : ne pas reveler si l email existe ou non
+        return {"detail": "Si ce compte existe, un lien de reinitialisation a ete envoye"}
+
+    token = generate_reset_token()
+    reset_entry = PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=datetime.utcnow() + timedelta(minutes=30),  # JA-004 : expire en 30 min
+        used=False,
+    )
+    db.add(reset_entry)
+    db.commit()
+
+    # TODO : envoyer par email une fois le service SMTP configure
+    return {
+        "detail": "Si ce compte existe, un lien de reinitialisation a ete envoye",
+        "reset_token": token,
+    }
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    reset_entry = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == payload.token
+    ).first()
+
+    if not reset_entry:
+        raise HTTPException(status_code=400, detail="Token invalide")
+
+    if reset_entry.used:
+        raise HTTPException(status_code=400, detail="Ce lien a deja ete utilise")
+
+    if reset_entry.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Ce lien a expire")
+
+    user = db.query(User).filter(User.id == reset_entry.user_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Token invalide")
+
+    user.hashed_password = hash_password(payload.new_password)
+    reset_entry.used = True  # JA-004 : usage unique
+
+    db.commit()
+    return {"detail": "Mot de passe reinitialise avec succes"}
