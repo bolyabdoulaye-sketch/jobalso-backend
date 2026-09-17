@@ -113,3 +113,13 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
 
     db.commit()
     return {"detail": "Mot de passe reinitialise avec succes"}
+
+
+from app.api.deps import get_current_user
+from app.schemas.user import UserRead as _UserReadForMe
+
+
+@router.get("/me", response_model=_UserReadForMe)
+def read_current_user(current_user=Depends(get_current_user)):
+    return current_user
+
