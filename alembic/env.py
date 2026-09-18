@@ -14,6 +14,7 @@ from app.models.matching import MatchingScore, MatchingLog  # noqa: F401
 from app.models.shortlist import ShortlistEntry  # noqa: F401
 from app.models.application import Application, PipelineEvent  # noqa: F401
 from app.models.notification_preference import NotificationPreference, RecommendationDismissal  # noqa: F401
+from app.models.interview import InterviewSimulation, InterviewQuestion, InterviewAnswer, InterviewFeedback  # noqa: F401
 from app.models.password_reset_token import PasswordResetToken  # noqa: F401
 
 config = context.config
