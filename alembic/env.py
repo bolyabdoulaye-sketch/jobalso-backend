@@ -11,6 +11,7 @@ from app.models.user import User  # noqa: F401
 from app.models.job import Job, JobCriterion  # noqa: F401
 from app.models.candidate import CandidateProfile, CV, CandidateSkill  # noqa: F401
 from app.models.matching import MatchingScore, MatchingLog  # noqa: F401
+from app.models.shortlist import ShortlistEntry  # noqa: F401
 from app.models.password_reset_token import PasswordResetToken  # noqa: F401
 
 config = context.config
