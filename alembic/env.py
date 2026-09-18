@@ -8,6 +8,7 @@ from alembic import context
 from app.core.config import settings
 from app.db.base import Base
 from app.models.user import User  # noqa: F401
+from app.models.job import Job, JobCriterion  # noqa: F401
 from app.models.password_reset_token import PasswordResetToken  # noqa: F401
 
 config = context.config
