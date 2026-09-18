@@ -5,16 +5,16 @@ from app.models.application import PipelineStage
 
 
 class ApplicationCreate(BaseModel):
-    job_id: uuid.UUID
-    candidate_profile_id: uuid.UUID
+    poste_id: uuid.UUID
+    profil_candidat_id: uuid.UUID
 
 
 class ApplicationRead(BaseModel):
     id: uuid.UUID
-    job_id: uuid.UUID
-    candidate_profile_id: uuid.UUID
-    current_stage: PipelineStage
-    applied_at: datetime
+    poste_id: uuid.UUID
+    profil_candidat_id: uuid.UUID
+    etape_actuelle: PipelineStage
+    postule_le: datetime
 
     class Config:
         from_attributes = True
@@ -22,10 +22,10 @@ class ApplicationRead(BaseModel):
 
 class PipelineEventRead(BaseModel):
     id: uuid.UUID
-    application_id: uuid.UUID
-    from_stage: PipelineStage | None
-    to_stage: PipelineStage
-    occurred_at: datetime
+    candidature_id: uuid.UUID
+    etape_origine: PipelineStage | None
+    etape_destination: PipelineStage
+    survenu_le: datetime
 
     class Config:
         from_attributes = True

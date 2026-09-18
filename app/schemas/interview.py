@@ -5,18 +5,18 @@ from app.models.interview import InterviewStatus
 
 
 class InterviewSimulationCreate(BaseModel):
-    job_id: uuid.UUID
-    consent_accepted: bool  # JA-078
+    poste_id: uuid.UUID
+    consentement_accepte: bool
 
 
 class InterviewSimulationRead(BaseModel):
     id: uuid.UUID
-    job_id: uuid.UUID
-    candidate_profile_id: uuid.UUID
-    status: InterviewStatus
-    consent_given_at: datetime | None
-    shared_with_recruiter: bool
-    created_at: datetime
+    poste_id: uuid.UUID
+    profil_candidat_id: uuid.UUID
+    statut: InterviewStatus
+    consentement_donne_le: datetime | None
+    partage_avec_recruteur: bool
+    cree_le: datetime
 
     class Config:
         from_attributes = True
@@ -24,8 +24,8 @@ class InterviewSimulationRead(BaseModel):
 
 class InterviewQuestionRead(BaseModel):
     id: uuid.UUID
-    order: int
-    question_text: str
+    ordre: int
+    texte_question: str
 
     class Config:
         from_attributes = True
@@ -33,15 +33,15 @@ class InterviewQuestionRead(BaseModel):
 
 class InterviewAnswerCreate(BaseModel):
     question_id: uuid.UUID
-    answer_text: str
+    texte_reponse: str
 
 
 class InterviewAnswerRead(BaseModel):
     id: uuid.UUID
     question_id: uuid.UUID
-    answer_text: str
-    follow_up_text: str | None
-    answered_at: datetime
+    texte_reponse: str
+    texte_relance: str | None
+    repondu_le: datetime
 
     class Config:
         from_attributes = True
@@ -50,9 +50,9 @@ class InterviewAnswerRead(BaseModel):
 class InterviewFeedbackRead(BaseModel):
     id: uuid.UUID
     simulation_id: uuid.UUID
-    strengths: dict
-    improvement_areas: dict
-    created_at: datetime
+    points_forts: dict
+    axes_amelioration: dict
+    cree_le: datetime
 
     class Config:
         from_attributes = True

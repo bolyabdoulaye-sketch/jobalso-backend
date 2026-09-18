@@ -6,12 +6,12 @@ from app.db.base import Base
 
 
 class ShortlistEntry(Base):
-    __tablename__ = "shortlist_entries"
+    __tablename__ = "entrees_shortlist"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id"), nullable=False)
-    candidate_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("candidate_profiles.id"), nullable=False)
+    poste_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("postes.id"), nullable=False)
+    profil_candidat_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profils_candidats.id"), nullable=False)
 
-    is_selected_for_comparison: Mapped[bool] = mapped_column(Boolean, default=False)  # JA-051
+    selectionne_pour_comparaison: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)  # JA-049
+    ajoute_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

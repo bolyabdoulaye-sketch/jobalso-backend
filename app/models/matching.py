@@ -13,33 +13,30 @@ class MatchingClassification(str, enum.Enum):
 
 
 class MatchingScore(Base):
-    __tablename__ = "matching_scores"
+    __tablename__ = "scores_matching"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id"), nullable=False)
-    candidate_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("candidate_profiles.id"), nullable=False)
+    poste_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("postes.id"), nullable=False)
+    profil_candidat_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profils_candidats.id"), nullable=False)
 
-    score: Mapped[int] = mapped_column(Integer, nullable=False)  # JA-039 : 0-100
-    classification: Mapped[MatchingClassification] = mapped_column(
-        Enum(MatchingClassification), nullable=False
-    )  # JA-042
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+    classification: Mapped[MatchingClassification] = mapped_column(Enum(MatchingClassification), nullable=False)
 
-    model_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    version_modele: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # JA-044
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class MatchingLog(Base):
-    __tablename__ = "matching_logs"
+    __tablename__ = "journaux_matching"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    matching_score_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matching_scores.id"), nullable=False)
+    score_matching_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("scores_matching.id"), nullable=False)
 
-    # JA-045 : snapshot immuable des entrees et du resultat pour tracabilite ISO 42001
-    input_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
-    output_score: Mapped[int] = mapped_column(Integer, nullable=False)
-    output_explanation: Mapped[dict] = mapped_column(JSON, nullable=False)  # JA-041 : criteres remplis/ecarts
-    model_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    instantane_entrees: Mapped[dict] = mapped_column(JSON, nullable=False)
+    score_resultat: Mapped[int] = mapped_column(Integer, nullable=False)
+    explication_resultat: Mapped[dict] = mapped_column(JSON, nullable=False)
+    version_modele: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

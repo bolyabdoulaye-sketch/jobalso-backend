@@ -14,26 +14,26 @@ class PipelineStage(str, enum.Enum):
 
 
 class Application(Base):
-    __tablename__ = "applications"
+    __tablename__ = "candidatures"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id"), nullable=False)
-    candidate_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("candidate_profiles.id"), nullable=False)
+    poste_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("postes.id"), nullable=False)
+    profil_candidat_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profils_candidats.id"), nullable=False)
 
-    current_stage: Mapped[PipelineStage] = mapped_column(
+    etape_actuelle: Mapped[PipelineStage] = mapped_column(
         Enum(PipelineStage), default=PipelineStage.CANDIDATURE, nullable=False
-    )  # JA-056
+    )
 
-    applied_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    postule_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class PipelineEvent(Base):
-    __tablename__ = "pipeline_events"
+    __tablename__ = "evenements_pipeline"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    application_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("applications.id"), nullable=False)
+    candidature_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("candidatures.id"), nullable=False)
 
-    from_stage: Mapped[PipelineStage | None] = mapped_column(Enum(PipelineStage), nullable=True)
-    to_stage: Mapped[PipelineStage] = mapped_column(Enum(PipelineStage), nullable=False)
+    etape_origine: Mapped[PipelineStage | None] = mapped_column(Enum(PipelineStage), nullable=True)
+    etape_destination: Mapped[PipelineStage] = mapped_column(Enum(PipelineStage), nullable=False)
 
-    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)  # JA-060
+    survenu_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

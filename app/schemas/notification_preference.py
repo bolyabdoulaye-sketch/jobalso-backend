@@ -5,29 +5,29 @@ from pydantic import BaseModel
 
 class NotificationPreferenceRead(BaseModel):
     id: uuid.UUID
-    user_id: uuid.UUID
-    notify_new_recommendation: bool
-    notify_application_received: bool
-    notify_pipeline_stage_change: bool
-    notify_interview_proposed: bool
-    notify_application_rejected: bool
-    notify_weekly_summary: bool
-    notify_profile_reminder: bool
-    updated_at: datetime
+    utilisateur_id: uuid.UUID
+    notifier_nouvelle_recommandation: bool
+    notifier_candidature_recue: bool
+    notifier_changement_etape: bool
+    notifier_entrevue_proposee: bool
+    notifier_candidature_refusee: bool
+    notifier_recapitulatif_hebdo: bool
+    notifier_rappel_profil: bool
+    modifie_le: datetime
 
     class Config:
         from_attributes = True
 
 
 class NotificationPreferenceUpdate(BaseModel):
-    notify_new_recommendation: bool | None = None
-    notify_application_received: bool | None = None
-    notify_pipeline_stage_change: bool | None = None
-    notify_interview_proposed: bool | None = None
-    notify_application_rejected: bool | None = None
-    notify_weekly_summary: bool | None = None
-    notify_profile_reminder: bool | None = None
+    notifier_nouvelle_recommandation: bool | None = None
+    notifier_candidature_recue: bool | None = None
+    notifier_changement_etape: bool | None = None
+    notifier_entrevue_proposee: bool | None = None
+    notifier_candidature_refusee: bool | None = None
+    notifier_recapitulatif_hebdo: bool | None = None
+    notifier_rappel_profil: bool | None = None
 
 
 class RecommendationDismissalCreate(BaseModel):
-    job_id: uuid.UUID
+    poste_id: uuid.UUID

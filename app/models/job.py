@@ -19,26 +19,26 @@ class JobCreationMode(str, enum.Enum):
 
 
 class Job(Base):
-    __tablename__ = "jobs"
+    __tablename__ = "postes"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    recruiter_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    recruteur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
 
-    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    titre: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    description_raw: Mapped[str | None] = mapped_column(Text, nullable=True)  # JA-015 saisie libre
-    description_generated: Mapped[str | None] = mapped_column(Text, nullable=True)  # JA-023 texte genere
+    description_brute: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_generee: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    status: Mapped[JobStatus] = mapped_column(Enum(JobStatus), default=JobStatus.BROUILLON, nullable=False)
-    creation_mode: Mapped[JobCreationMode] = mapped_column(Enum(JobCreationMode), nullable=False)
+    statut: Mapped[JobStatus] = mapped_column(Enum(JobStatus), default=JobStatus.BROUILLON, nullable=False)
+    mode_creation: Mapped[JobCreationMode] = mapped_column(Enum(JobCreationMode), nullable=False)
 
-    application_link_token: Mapped[str] = mapped_column(
+    jeton_lien_candidature: Mapped[str] = mapped_column(
         String(64), unique=True, index=True, default=lambda: secrets.token_urlsafe(24)
-    )  # JA-026
+    )
 
-    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    publie_le: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class CriterionLevel(str, enum.Enum):
@@ -56,14 +56,14 @@ class CriterionType(str, enum.Enum):
 
 
 class JobCriterion(Base):
-    __tablename__ = "job_criteria"
+    __tablename__ = "criteres_poste"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id"), nullable=False)
+    poste_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("postes.id"), nullable=False)
 
-    criterion_type: Mapped[CriterionType] = mapped_column(Enum(CriterionType), nullable=False)
-    value: Mapped[str] = mapped_column(String(255), nullable=False)
-    level: Mapped[CriterionLevel] = mapped_column(Enum(CriterionLevel), nullable=False)
+    type_critere: Mapped[CriterionType] = mapped_column(Enum(CriterionType), nullable=False)
+    valeur: Mapped[str] = mapped_column(String(255), nullable=False)
+    niveau: Mapped[CriterionLevel] = mapped_column(Enum(CriterionLevel), nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

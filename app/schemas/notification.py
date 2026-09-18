@@ -6,11 +6,11 @@ from app.models.notification import NotificationType, EmailStatus
 
 class NotificationRead(BaseModel):
     id: uuid.UUID
-    user_id: uuid.UUID
+    utilisateur_id: uuid.UUID
     type: NotificationType
     message: str
-    is_read: bool
-    created_at: datetime
+    lu: bool
+    cree_le: datetime
 
     class Config:
         from_attributes = True
@@ -18,11 +18,11 @@ class NotificationRead(BaseModel):
 
 class EmailLogRead(BaseModel):
     id: uuid.UUID
-    user_id: uuid.UUID
-    email_type: str
-    status: EmailStatus
-    unsubscribed_at: datetime | None
-    sent_at: datetime
+    utilisateur_id: uuid.UUID
+    type_email: str
+    statut: EmailStatus
+    desabonne_le: datetime | None
+    envoye_le: datetime
 
     class Config:
         from_attributes = True

@@ -18,13 +18,13 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
 
     type: Mapped[NotificationType] = mapped_column(Enum(NotificationType), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    is_read: Mapped[bool] = mapped_column(Boolean, default=False)  # JA-082
+    lu: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class EmailStatus(str, enum.Enum):
@@ -34,14 +34,14 @@ class EmailStatus(str, enum.Enum):
 
 
 class EmailLog(Base):
-    __tablename__ = "email_logs"
+    __tablename__ = "journaux_email"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
 
-    email_type: Mapped[str] = mapped_column(String(100), nullable=False)  # JA-081 : accuse_reception, etc.
-    status: Mapped[EmailStatus] = mapped_column(Enum(EmailStatus), default=EmailStatus.ENVOYE, nullable=False)
+    type_email: Mapped[str] = mapped_column(String(100), nullable=False)
+    statut: Mapped[EmailStatus] = mapped_column(Enum(EmailStatus), default=EmailStatus.ENVOYE, nullable=False)
 
-    unsubscribed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # JA-083
+    desabonne_le: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    sent_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    envoye_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

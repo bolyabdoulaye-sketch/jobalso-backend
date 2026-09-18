@@ -4,16 +4,16 @@ from pydantic import BaseModel
 
 
 class ShortlistEntryCreate(BaseModel):
-    job_id: uuid.UUID
-    candidate_profile_id: uuid.UUID
+    poste_id: uuid.UUID
+    profil_candidat_id: uuid.UUID
 
 
 class ShortlistEntryRead(BaseModel):
     id: uuid.UUID
-    job_id: uuid.UUID
-    candidate_profile_id: uuid.UUID
-    is_selected_for_comparison: bool
-    added_at: datetime
+    poste_id: uuid.UUID
+    profil_candidat_id: uuid.UUID
+    selectionne_pour_comparaison: bool
+    ajoute_le: datetime
 
     class Config:
         from_attributes = True

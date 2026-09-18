@@ -5,38 +5,38 @@ from app.models.job import JobStatus, JobCreationMode, CriterionLevel, Criterion
 
 
 class JobCriterionCreate(BaseModel):
-    criterion_type: CriterionType
-    value: str
-    level: CriterionLevel
+    type_critere: CriterionType
+    valeur: str
+    niveau: CriterionLevel
 
 
 class JobCriterionRead(BaseModel):
     id: uuid.UUID
-    criterion_type: CriterionType
-    value: str
-    level: CriterionLevel
+    type_critere: CriterionType
+    valeur: str
+    niveau: CriterionLevel
 
     class Config:
         from_attributes = True
 
 
 class JobCreate(BaseModel):
-    creation_mode: JobCreationMode
-    title: str | None = None
-    description_raw: str | None = None
+    mode_creation: JobCreationMode
+    titre: str | None = None
+    description_brute: str | None = None
 
 
 class JobRead(BaseModel):
     id: uuid.UUID
-    recruiter_id: uuid.UUID
-    title: str | None
-    description_raw: str | None
-    description_generated: str | None
-    status: JobStatus
-    creation_mode: JobCreationMode
-    application_link_token: str
-    published_at: datetime | None
-    created_at: datetime
+    recruteur_id: uuid.UUID
+    titre: str | None
+    description_brute: str | None
+    description_generee: str | None
+    statut: JobStatus
+    mode_creation: JobCreationMode
+    jeton_lien_candidature: str
+    publie_le: datetime | None
+    cree_le: datetime
 
     class Config:
         from_attributes = True

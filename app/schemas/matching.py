@@ -6,13 +6,13 @@ from app.models.matching import MatchingClassification
 
 class MatchingScoreRead(BaseModel):
     id: uuid.UUID
-    job_id: uuid.UUID
-    candidate_profile_id: uuid.UUID
+    poste_id: uuid.UUID
+    profil_candidat_id: uuid.UUID
     score: int
     classification: MatchingClassification
-    model_version: str
-    created_at: datetime
-    updated_at: datetime
+    version_modele: str
+    cree_le: datetime
+    modifie_le: datetime
 
     class Config:
         from_attributes = True
@@ -20,12 +20,12 @@ class MatchingScoreRead(BaseModel):
 
 class MatchingLogRead(BaseModel):
     id: uuid.UUID
-    matching_score_id: uuid.UUID
-    input_snapshot: dict
-    output_score: int
-    output_explanation: dict
-    model_version: str
-    created_at: datetime
+    score_matching_id: uuid.UUID
+    instantane_entrees: dict
+    score_resultat: int
+    explication_resultat: dict
+    version_modele: str
+    cree_le: datetime
 
     class Config:
         from_attributes = True

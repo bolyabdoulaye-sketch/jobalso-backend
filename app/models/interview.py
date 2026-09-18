@@ -1,7 +1,7 @@
 import enum
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Text, Boolean, DateTime, Enum, ForeignKey, Integer, JSON
+from sqlalchemy import Text, Boolean, DateTime, Enum, ForeignKey, Integer, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
@@ -13,54 +13,54 @@ class InterviewStatus(str, enum.Enum):
 
 
 class InterviewSimulation(Base):
-    __tablename__ = "interview_simulations"
+    __tablename__ = "simulations_entrevue"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id"), nullable=False)
-    candidate_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("candidate_profiles.id"), nullable=False)
+    poste_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("postes.id"), nullable=False)
+    profil_candidat_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profils_candidats.id"), nullable=False)
 
-    status: Mapped[InterviewStatus] = mapped_column(
+    statut: Mapped[InterviewStatus] = mapped_column(
         Enum(InterviewStatus), default=InterviewStatus.EN_COURS, nullable=False
-    )  # JA-076
+    )
 
-    consent_given_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # JA-078
-    shared_with_recruiter: Mapped[bool] = mapped_column(Boolean, default=False)  # JA-079
+    consentement_donne_le: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    partage_avec_recruteur: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class InterviewQuestion(Base):
-    __tablename__ = "interview_questions"
+    __tablename__ = "questions_entrevue"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    simulation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("interview_simulations.id"), nullable=False)
+    simulation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("simulations_entrevue.id"), nullable=False)
 
-    order: Mapped[int] = mapped_column(Integer, nullable=False)  # JA-075
-    question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    ordre: Mapped[int] = mapped_column(Integer, nullable=False)
+    texte_question: Mapped[str] = mapped_column(Text, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class InterviewAnswer(Base):
-    __tablename__ = "interview_answers"
+    __tablename__ = "reponses_entrevue"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("interview_questions.id"), nullable=False)
+    question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("questions_entrevue.id"), nullable=False)
 
-    answer_text: Mapped[str] = mapped_column(Text, nullable=False)
-    follow_up_text: Mapped[str | None] = mapped_column(Text, nullable=True)  # JA-076 : relance
+    texte_reponse: Mapped[str] = mapped_column(Text, nullable=False)
+    texte_relance: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    answered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    repondu_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class InterviewFeedback(Base):
-    __tablename__ = "interview_feedbacks"
+    __tablename__ = "retours_entrevue"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    simulation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("interview_simulations.id"), unique=True, nullable=False)
+    simulation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("simulations_entrevue.id"), unique=True, nullable=False)
 
-    strengths: Mapped[dict] = mapped_column(JSON, nullable=False)  # JA-077
-    improvement_areas: Mapped[dict] = mapped_column(JSON, nullable=False)  # JA-077
+    points_forts: Mapped[dict] = mapped_column(JSON, nullable=False)
+    axes_amelioration: Mapped[dict] = mapped_column(JSON, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
