@@ -21,6 +21,7 @@ from app.models.interview import InterviewSimulation, InterviewQuestion, Intervi
 from app.models.job_criterion_history import JobCriterionHistory  # noqa: F401
 from app.models.incident import Incident  # noqa: F401
 from app.models.bias_test_result import BiasTestResult  # noqa: F401
+from app.models.job_template import JobTemplate, JobTemplateCriterion, JobTemplatePersona  # noqa: F401
 from app.models.notification import Notification, EmailLog  # noqa: F401
 
 config = context.config
