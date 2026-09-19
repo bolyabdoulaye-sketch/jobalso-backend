@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey, JSON
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -27,6 +27,11 @@ class MatchingScore(Base):
     cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Relations
+    poste: Mapped["Job"] = relationship(back_populates="scores_matching")
+    profil_candidat: Mapped["CandidateProfile"] = relationship(back_populates="scores_matching")
+    journaux: Mapped[list["MatchingLog"]] = relationship(back_populates="score_matching", cascade="all, delete-orphan")
+
 
 class MatchingLog(Base):
     __tablename__ = "journaux_matching"
@@ -40,3 +45,6 @@ class MatchingLog(Base):
     version_modele: Mapped[str] = mapped_column(String(50), nullable=False)
 
     cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    score_matching: Mapped["MatchingScore"] = relationship(back_populates="journaux")

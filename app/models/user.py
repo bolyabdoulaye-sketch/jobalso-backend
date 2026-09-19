@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, Enum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -38,3 +38,13 @@ class User(Base):
 
     cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    postes: Mapped[list["Job"]] = relationship(back_populates="recruteur")
+    profil_candidat: Mapped["CandidateProfile | None"] = relationship(back_populates="utilisateur", uselist=False)
+    jetons_reset: Mapped[list["PasswordResetToken"]] = relationship(back_populates="utilisateur")
+    preferences_notification: Mapped["NotificationPreference | None"] = relationship(
+        back_populates="utilisateur", uselist=False
+    )
+    notifications: Mapped[list["Notification"]] = relationship(back_populates="utilisateur")
+    journaux_email: Mapped[list["EmailLog"]] = relationship(back_populates="utilisateur")

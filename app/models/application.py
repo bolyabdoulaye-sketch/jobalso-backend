@@ -1,8 +1,8 @@
 import enum
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, Enum, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, Enum, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -15,6 +15,7 @@ class PipelineStage(str, enum.Enum):
 
 class Application(Base):
     __tablename__ = "candidatures"
+    __table_args__ = (UniqueConstraint("poste_id", "profil_candidat_id", name="uq_candidature_poste_candidat"),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     poste_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("postes.id"), nullable=False)
@@ -25,6 +26,11 @@ class Application(Base):
     )
 
     postule_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    poste: Mapped["Job"] = relationship(back_populates="candidatures")
+    profil_candidat: Mapped["CandidateProfile"] = relationship(back_populates="candidatures")
+    evenements: Mapped[list["PipelineEvent"]] = relationship(back_populates="candidature", cascade="all, delete-orphan")
 
 
 class PipelineEvent(Base):
@@ -37,3 +43,6 @@ class PipelineEvent(Base):
     etape_destination: Mapped[PipelineStage] = mapped_column(Enum(PipelineStage), nullable=False)
 
     survenu_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    candidature: Mapped["Application"] = relationship(back_populates="evenements")

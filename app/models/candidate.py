@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, Enum, ForeignKey, Integer
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -21,6 +21,17 @@ class CandidateProfile(Base):
 
     cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    utilisateur: Mapped["User"] = relationship(back_populates="profil_candidat")
+    cvs: Mapped[list["CV"]] = relationship(back_populates="profil_candidat", cascade="all, delete-orphan")
+    competences: Mapped[list["CandidateSkill"]] = relationship(
+        back_populates="profil_candidat", cascade="all, delete-orphan"
+    )
+    candidatures: Mapped[list["Application"]] = relationship(back_populates="profil_candidat")
+    entrees_shortlist: Mapped[list["ShortlistEntry"]] = relationship(back_populates="profil_candidat")
+    scores_matching: Mapped[list["MatchingScore"]] = relationship(back_populates="profil_candidat")
+    simulations_entrevue: Mapped[list["InterviewSimulation"]] = relationship(back_populates="profil_candidat")
 
 
 class CVAnalysisStatus(str, enum.Enum):
@@ -46,6 +57,9 @@ class CV(Base):
 
     depose_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    # Relations
+    profil_candidat: Mapped["CandidateProfile"] = relationship(back_populates="cvs")
+
 
 class SkillType(str, enum.Enum):
     COMPETENCE = "competence"
@@ -70,3 +84,6 @@ class CandidateSkill(Base):
     source: Mapped[SkillSource] = mapped_column(Enum(SkillSource), default=SkillSource.EXTRAIT, nullable=False)
 
     cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    profil_candidat: Mapped["CandidateProfile"] = relationship(back_populates="competences")

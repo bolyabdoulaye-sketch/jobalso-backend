@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 from sqlalchemy import String, Text, Boolean, DateTime, Enum, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -26,6 +26,9 @@ class Notification(Base):
 
     cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    # Relations
+    utilisateur: Mapped["User"] = relationship(back_populates="notifications")
+
 
 class EmailStatus(str, enum.Enum):
     ENVOYE = "envoye"
@@ -45,3 +48,6 @@ class EmailLog(Base):
     desabonne_le: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     envoye_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    utilisateur: Mapped["User"] = relationship(back_populates="journaux_email")

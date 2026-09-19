@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -20,6 +20,9 @@ class NotificationPreference(Base):
     notifier_rappel_profil: Mapped[bool] = mapped_column(Boolean, default=True)
 
     modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    utilisateur: Mapped["User"] = relationship(back_populates="preferences_notification")
 
 
 class RecommendationDismissal(Base):

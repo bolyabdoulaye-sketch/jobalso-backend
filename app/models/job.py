@@ -3,7 +3,7 @@ import uuid
 import secrets
 from datetime import datetime
 from sqlalchemy import String, Text, DateTime, Enum, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -40,6 +40,14 @@ class Job(Base):
     cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Relations
+    recruteur: Mapped["User"] = relationship(back_populates="postes")
+    criteres: Mapped[list["JobCriterion"]] = relationship(back_populates="poste", cascade="all, delete-orphan")
+    candidatures: Mapped[list["Application"]] = relationship(back_populates="poste")
+    entrees_shortlist: Mapped[list["ShortlistEntry"]] = relationship(back_populates="poste")
+    scores_matching: Mapped[list["MatchingScore"]] = relationship(back_populates="poste")
+    simulations_entrevue: Mapped[list["InterviewSimulation"]] = relationship(back_populates="poste")
+
 
 class CriterionLevel(str, enum.Enum):
     OBLIGATOIRE = "obligatoire"
@@ -67,3 +75,6 @@ class JobCriterion(Base):
 
     cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    poste: Mapped["Job"] = relationship(back_populates="criteres")

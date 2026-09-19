@@ -1,7 +1,7 @@
 ﻿import uuid
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -16,3 +16,6 @@ class PasswordResetToken(Base):
     utilise: Mapped[bool] = mapped_column(Boolean, default=False)
 
     cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    utilisateur: Mapped["User"] = relationship(back_populates="jetons_reset")
