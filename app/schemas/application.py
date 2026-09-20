@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 from datetime import datetime
 from pydantic import BaseModel
 from app.models.application import PipelineStage
@@ -6,7 +6,6 @@ from app.models.application import PipelineStage
 
 class ApplicationCreate(BaseModel):
     poste_id: uuid.UUID
-    profil_candidat_id: uuid.UUID
 
 
 class ApplicationRead(BaseModel):
