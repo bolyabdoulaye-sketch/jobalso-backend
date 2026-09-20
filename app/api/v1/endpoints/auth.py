@@ -11,7 +11,8 @@ from app.core.security import (
     create_access_token,
     generate_reset_token,
 )
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.models.candidate import CandidateProfile
 from app.models.password_reset_token import PasswordResetToken
 from app.schemas.user import UserCreate, UserRead
 
@@ -36,6 +37,12 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         version_politique_consentement="v1",
     )
     db.add(user)
+    db.flush()  # pour obtenir user.id avant de creer le profil
+
+    if user.role == UserRole.CANDIDAT:
+        profil = CandidateProfile(utilisateur_id=user.id)
+        db.add(profil)
+
     db.commit()
     db.refresh(user)
     return user
