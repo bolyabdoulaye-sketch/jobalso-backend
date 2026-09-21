@@ -1,10 +1,10 @@
 import os
 import uuid
-import shutil
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user, require_role
+from app.api.deps import get_db, require_role
+from app.core.storage import upload_file, get_download_url
 from app.models.user import User, UserRole
 from app.models.candidate import CandidateProfile, CV, CandidateSkill, CVAnalysisStatus, SkillSource
 from app.schemas.candidate import (
@@ -17,7 +17,6 @@ from app.schemas.candidate import (
 
 router = APIRouter(prefix="/profils-candidats", tags=["profils-candidats"])
 
-UPLOAD_DIR = "uploads/cvs"
 MAX_FILE_SIZE_MB = 10
 ALLOWED_EXTENSIONS = {".pdf", ".docx"}
 
@@ -48,9 +47,9 @@ def update_my_profile(
     profil = get_own_profile(current_user, db)
 
     if profile_in.localisation is not None:
-        profil.localisation = profile_in.localisation  # JA-036
+        profil.localisation = profile_in.localisation
     if profile_in.type_poste_recherche is not None:
-        profil.type_poste_recherche = profile_in.type_poste_recherche  # JA-036
+        profil.type_poste_recherche = profile_in.type_poste_recherche
 
     db.commit()
     db.refresh(profil)
@@ -67,26 +66,22 @@ def upload_cv(
 
     extension = os.path.splitext(fichier.filename)[1].lower()
     if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Format non supporte. Utilisez PDF ou DOCX")  # JA-030
+        raise HTTPException(status_code=400, detail="Format non supporte. Utilisez PDF ou DOCX")
 
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    nom_fichier = f"{uuid.uuid4()}{extension}"
-    chemin_complet = os.path.join(UPLOAD_DIR, nom_fichier)
-
-    with open(chemin_complet, "wb") as buffer:
-        shutil.copyfileobj(fichier.file, buffer)
-
-    taille_mo = os.path.getsize(chemin_complet) / (1024 * 1024)
+    contenu = fichier.file.read()
+    taille_mo = len(contenu) / (1024 * 1024)
     if taille_mo > MAX_FILE_SIZE_MB:
-        os.remove(chemin_complet)
-        raise HTTPException(status_code=400, detail="Fichier trop volumineux (max 10 Mo)")  # JA-030
+        raise HTTPException(status_code=400, detail="Fichier trop volumineux (max 10 Mo)")
 
-    # JA-032 : le nouveau CV devient le CV actuel, les autres ne le sont plus
+    fichier.file.seek(0)
+    content_type = "application/pdf" if extension == ".pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    object_name = upload_file(fichier.file, extension, content_type)
+
     db.query(CV).filter(CV.profil_candidat_id == profil.id).update({"est_actuel": False})
 
     cv = CV(
         profil_candidat_id=profil.id,
-        chemin_fichier=chemin_complet,
+        chemin_fichier=object_name,
         type_fichier=extension.replace(".", ""),
         statut_analyse=CVAnalysisStatus.EN_ATTENTE,
         est_actuel=True,
@@ -104,6 +99,21 @@ def list_my_cvs(
 ):
     profil = get_own_profile(current_user, db)
     return db.query(CV).filter(CV.profil_candidat_id == profil.id).all()
+
+
+@router.get("/moi/cv/{cv_id}/telecharger")
+def get_cv_download_link(
+    cv_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.CANDIDAT)),
+    db: Session = Depends(get_db),
+):
+    profil = get_own_profile(current_user, db)
+    cv = db.query(CV).filter(CV.id == cv_id, CV.profil_candidat_id == profil.id).first()
+    if not cv:
+        raise HTTPException(status_code=404, detail="CV introuvable")
+
+    url = get_download_url(cv.chemin_fichier)
+    return {"url": url}
 
 
 @router.post("/moi/competences", response_model=CandidateSkillRead, status_code=status.HTTP_201_CREATED)

@@ -10,5 +10,18 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  minio:
+    image: quay.io/minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: jobalso_minio
+      MINIO_ROOT_PASSWORD: jobalso_minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+
 volumes:
   pgdata:
+  miniodata:
