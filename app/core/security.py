@@ -30,5 +30,4 @@ def decode_access_token(token: str) -> dict | None:
 
 
 def generate_reset_token() -> str:
-    # JA-004 : token aleatoire, non predictible, pour le lien de reset
     return secrets.token_urlsafe(32)
