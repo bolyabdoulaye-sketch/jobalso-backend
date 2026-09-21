@@ -6,10 +6,10 @@ from app.models.user import UserRole, RecruteurPersona
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8)
+    mot_de_passe: str = Field(min_length=8)
     role: UserRole
     persona: RecruteurPersona | None = None
-    consent_accepted: bool
+    consentement_accepte: bool
 
     @model_validator(mode="after")
     def check_persona_only_for_recruteur(self):
@@ -20,7 +20,7 @@ class UserCreate(BaseModel):
 
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    mot_de_passe: str
 
 
 class UserRead(BaseModel):
@@ -28,9 +28,9 @@ class UserRead(BaseModel):
     email: EmailStr
     role: UserRole
     persona: RecruteurPersona | None
-    is_active: bool
-    is_email_verified: bool
-    created_at: datetime
+    est_actif: bool
+    email_verifie: bool
+    cree_le: datetime
 
     class Config:
         from_attributes = True

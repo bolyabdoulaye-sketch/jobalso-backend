@@ -1,18 +1,21 @@
 ﻿import uuid
 from datetime import datetime
-from sqlalchemy import ForeignKey, DateTime, Boolean, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
 class PasswordResetToken(Base):
-    __tablename__ = "password_reset_tokens"
+    __tablename__ = "jetons_reinitialisation_mot_de_passe"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    token: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    jeton: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
 
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    used: Mapped[bool] = mapped_column(Boolean, default=False)  # JA-004 : usage unique
+    expire_le: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    utilise: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    utilisateur: Mapped["User"] = relationship(back_populates="jetons_reset")

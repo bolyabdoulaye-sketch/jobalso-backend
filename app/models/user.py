@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, Enum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
@@ -21,20 +21,30 @@ class RecruteurPersona(str, enum.Enum):
 
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "utilisateurs"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    mot_de_passe_hache: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
 
     persona: Mapped[RecruteurPersona | None] = mapped_column(Enum(RecruteurPersona), nullable=True)
 
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    est_actif: Mapped[bool] = mapped_column(Boolean, default=True)
+    email_verifie: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    consent_given_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    consent_policy_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    consentement_donne_le: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    version_politique_consentement: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    postes: Mapped[list["Job"]] = relationship(back_populates="recruteur")
+    profil_candidat: Mapped["CandidateProfile | None"] = relationship(back_populates="utilisateur", uselist=False)
+    jetons_reset: Mapped[list["PasswordResetToken"]] = relationship(back_populates="utilisateur")
+    preferences_notification: Mapped["NotificationPreference | None"] = relationship(
+        back_populates="utilisateur", uselist=False
+    )
+    notifications: Mapped[list["Notification"]] = relationship(back_populates="utilisateur")
+    journaux_email: Mapped[list["EmailLog"]] = relationship(back_populates="utilisateur")
