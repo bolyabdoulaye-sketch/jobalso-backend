@@ -45,6 +45,25 @@ services:
     networks:
       - jobalso_network
 
+  api:
+    build: .
+    container_name: jobalso_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      MINIO_ENDPOINT: minio:9000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - minio
+    volumes:
+      - .:/code
+    networks:
+      - jobalso_network
+
 volumes:
   pgdata:
   miniodata:
