@@ -45,6 +45,16 @@ services:
     networks:
       - jobalso_network
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: jobalso_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - jobalso_network
+
   api:
     build: .
     container_name: jobalso_api
@@ -54,11 +64,14 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       MINIO_ENDPOINT: minio:9000
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
     ports:
       - "8000:8000"
     depends_on:
       - db
       - minio
+      - mailpit
     volumes:
       - .:/code
     networks:
@@ -70,13 +83,3 @@ volumes:
 
 networks:
   jobalso_network:
-
-frontend:
-    build:
-      context: .
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-    container_name: jobalso_frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"

@@ -1,6 +1,6 @@
 ﻿from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from app.models.entreprise import Entreprise
 from app.models.candidat import Candidat
 from app.models.recruteur import Recruteur
 from app.schemas.utilisateur import UtilisateurCreate, UtilisateurRead
+from app.services.email import send_welcome_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -20,7 +21,11 @@ POLITIQUE_CONFIDENTIALITE_VERSION = "1.0"
 
 
 @router.post("/register", response_model=UtilisateurRead, status_code=status.HTTP_201_CREATED)
-def register(user_in: UtilisateurCreate, db: Session = Depends(get_db)):
+def register(
+    user_in: UtilisateurCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     existing = db.query(Utilisateur).filter(Utilisateur.email == user_in.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email deja utilise")
@@ -72,6 +77,10 @@ def register(user_in: UtilisateurCreate, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(utilisateur)
+
+    # Email de bienvenue envoyé en arrière-plan (JA-080)
+    background_tasks.add_task(send_welcome_email, utilisateur.email, utilisateur.nom_prenom)
+
     return utilisateur
 
 
