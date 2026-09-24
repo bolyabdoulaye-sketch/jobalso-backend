@@ -1,15 +1,22 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from types import SimpleNamespace
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user, require_role
 from app.models.utilisateur import TypeUtilisateur, Utilisateur
 from app.models.recruteur import Recruteur
+from app.models.candidat import Candidat
 from app.models.offre import Offre
 from app.models.cv import CV
 from app.models.resultat import Resultat
+from app.models.historique_statut import HistoriqueStatutCandidature
+from app.models.statut_candidature import StatutCandidature, libelle_statut
 from app.schemas.offre import OffreCreate, OffreUpdate, OffreRead
 from app.schemas.resultat import MatchingRequest, ResultatRead
+from app.schemas.candidature import StatutUpdate
+from app.services.email import send_notification_email
 
 router = APIRouter(prefix="/offres", tags=["offres"])
 
@@ -138,9 +145,20 @@ def match_cv_to_offre(
         id_offre=offre.id_offre,
         id_cv=cv.id_cv,
         score_sim=score_provisoire,
-        statut_candidature="en_attente",
+        statut_candidature=StatutCandidature.RECUE.value,
     )
     db.add(resultat)
+    db.flush()
+
+    # Premiere entree de l'historique du pipeline (JA-056)
+    db.add(
+        HistoriqueStatutCandidature(
+            id_resultat=resultat.id_resultat,
+            ancien_statut=None,
+            nouveau_statut=StatutCandidature.RECUE.value,
+            id_utilisateur=current_user.id_utilisateur,
+        )
+    )
     db.commit()
     db.refresh(resultat)
     return resultat
@@ -162,3 +180,67 @@ def list_matching_results(
     return db.query(Resultat).filter(Resultat.id_offre == offre_id).order_by(
         Resultat.score_sim.desc()
     ).all()
+
+
+# Changement de statut d'une candidature par le recruteur (JA-056) + notification (JA-057)
+@router.patch("/resultats/{resultat_id}/statut", response_model=ResultatRead)
+def update_statut_candidature(
+    resultat_id: uuid.UUID,
+    statut_in: StatutUpdate,
+    background_tasks: BackgroundTasks,
+    current_user: Utilisateur = Depends(require_role(TypeUtilisateur.RECRUTEUR)),
+    db: Session = Depends(get_db),
+):
+    recruteur = get_own_recruteur(current_user, db)
+
+    resultat = db.query(Resultat).filter(Resultat.id_resultat == resultat_id).first()
+    if not resultat:
+        raise HTTPException(status_code=404, detail="Candidature introuvable")
+
+    offre = db.query(Offre).filter(Offre.id_offre == resultat.id_offre).first()
+    if not offre or offre.id_recruteur != recruteur.id_recruteur:
+        raise HTTPException(status_code=403, detail="Acces refuse")
+
+    nouveau = statut_in.statut.value
+    ancien = resultat.statut_candidature
+    if ancien == nouveau:
+        raise HTTPException(status_code=400, detail="La candidature est deja a ce statut")
+
+    resultat.statut_candidature = nouveau
+    db.add(
+        HistoriqueStatutCandidature(
+            id_resultat=resultat.id_resultat,
+            ancien_statut=ancien,
+            nouveau_statut=nouveau,
+            id_utilisateur=current_user.id_utilisateur,
+        )
+    )
+    db.commit()
+    db.refresh(resultat)
+
+    # Notification du candidat (respecte son desabonnement)
+    cv = db.query(CV).filter(CV.id_cv == resultat.id_cv).first()
+    candidat = db.query(Candidat).filter(Candidat.id_candidat == cv.id_candidat).first() if cv else None
+    destinataire = (
+        db.query(Utilisateur).filter(Utilisateur.id_utilisateur == candidat.id_utilisateur).first()
+        if candidat
+        else None
+    )
+    if destinataire:
+        # Copie simple : la session sera fermee quand la tache de fond s'executera
+        dest = SimpleNamespace(
+            email=destinataire.email,
+            id_utilisateur=destinataire.id_utilisateur,
+            notifications_email=destinataire.notifications_email,
+        )
+        libelle = libelle_statut(nouveau)
+        background_tasks.add_task(
+            send_notification_email,
+            dest,
+            "Mise à jour de votre candidature",
+            f"Bonjour,\n\nLe statut de votre candidature pour « {offre.titre_offre} » a changé : {libelle}.",
+            f"<p>Bonjour,</p><p>Le statut de votre candidature pour « {offre.titre_offre} » "
+            f"a changé : <strong>{libelle}</strong>.</p>",
+        )
+
+    return resultat

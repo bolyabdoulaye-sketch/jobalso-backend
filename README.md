@@ -48,6 +48,7 @@ C'est prêt. L'API est accessible avec le rechargement automatique activé (`--r
 | Documentation Swagger | http://localhost:8000/docs | - |
 | pgAdmin | http://localhost:5050 | Voir `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` dans `.env` |
 | MinIO Console | http://localhost:9001 | Voir `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` dans `.env` |
+| Mailpit (emails de dev) | http://localhost:8025 | - |
 
 ## Connecter pgAdmin à la base
 
