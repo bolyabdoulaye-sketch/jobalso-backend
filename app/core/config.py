@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = "no-reply@jobalso.com"
     SMTP_TLS: bool = False
+    API_PUBLIC_URL: str = "http://localhost:8000"
 
     class Config:
         env_file = ".env"

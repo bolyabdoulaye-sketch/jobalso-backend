@@ -41,6 +41,7 @@ class Utilisateur(Base):
     consentement_accepte: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     consentement_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     consentement_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    notifications_email: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
 
     # Relations
     candidat: Mapped["Candidat | None"] = relationship(back_populates="utilisateur", uselist=False)

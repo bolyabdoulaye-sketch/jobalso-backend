@@ -1,11 +1,13 @@
 ﻿from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user
 from app.core.security import hash_password, verify_password, create_access_token
+from app.core.unsubscribe import read_unsubscribe_token
 from app.models.utilisateur import Utilisateur, TypeUtilisateur, StatusUtilisateur
 from app.models.entreprise import Entreprise
 from app.models.candidat import Candidat
@@ -18,6 +20,26 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # Version courante de la politique de confidentialité (JA-009).
 # Incrémenter cette valeur à chaque mise à jour substantielle de la politique.
 POLITIQUE_CONFIDENTIALITE_VERSION = "1.0"
+
+
+def _page_html(titre: str, message: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{titre} - Jobalso</title>
+</head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,#063F79,#0D5298 55%,#187ACD);">
+<div style="background:#fff;border-radius:16px;padding:36px;max-width:440px;text-align:center;
+box-shadow:0 24px 60px rgba(6,20,32,0.16);">
+<h2 style="color:#10202E;margin-top:0">{titre}</h2>
+<p style="color:#587B95;font-size:14px">{message}</p>
+</div>
+</body>
+</html>"""
+
 
 
 @router.post("/register", response_model=UtilisateurRead, status_code=status.HTTP_201_CREATED)
@@ -104,3 +126,26 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @router.get("/me", response_model=UtilisateurRead)
 def read_current_user(current_user: Utilisateur = Depends(get_current_user)):
     return current_user
+
+
+# Désabonnement des notifications par email (JA-083, CASL).
+# GET : clic sur le lien dans l'email. POST : "one-click unsubscribe" des clients mail.
+@router.api_route("/desabonnement", methods=["GET", "POST"], response_class=HTMLResponse)
+def desabonnement(token: str, db: Session = Depends(get_db)):
+    user_id = read_unsubscribe_token(token)
+    utilisateur = db.get(Utilisateur, user_id) if user_id else None
+    if utilisateur is None:
+        return HTMLResponse(
+            _page_html("Lien invalide", "Ce lien de désabonnement est invalide ou incomplet."),
+            status_code=400,
+        )
+
+    utilisateur.notifications_email = False
+    db.commit()
+    return HTMLResponse(
+        _page_html(
+            "Désabonnement confirmé",
+            "Vous ne recevrez plus de notifications par email de Jobalso. "
+            "Vous continuerez à recevoir les emails essentiels liés à votre compte.",
+        )
+    )
