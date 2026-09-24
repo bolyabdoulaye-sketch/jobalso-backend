@@ -1,4 +1,6 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, status
+﻿from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -12,12 +14,26 @@ from app.schemas.utilisateur import UtilisateurCreate, UtilisateurRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Version courante de la politique de confidentialité (JA-009).
+# Incrémenter cette valeur à chaque mise à jour substantielle de la politique.
+POLITIQUE_CONFIDENTIALITE_VERSION = "1.0"
+
 
 @router.post("/register", response_model=UtilisateurRead, status_code=status.HTTP_201_CREATED)
 def register(user_in: UtilisateurCreate, db: Session = Depends(get_db)):
     existing = db.query(Utilisateur).filter(Utilisateur.email == user_in.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email deja utilise")
+
+    existing_phone = db.query(Utilisateur).filter(Utilisateur.numero_telephone == user_in.numero_telephone).first()
+    if existing_phone:
+        raise HTTPException(status_code=400, detail="Numero de telephone deja utilise")
+
+    if not user_in.consentement_accepte:
+        raise HTTPException(
+            status_code=400,
+            detail="Vous devez accepter la politique de confidentialite pour creer un compte",
+        )
 
     if user_in.type_utilisateur == TypeUtilisateur.RECRUTEUR and not user_in.entreprise:
         raise HTTPException(status_code=400, detail="Les informations d'entreprise sont requises pour un recruteur")
@@ -29,6 +45,9 @@ def register(user_in: UtilisateurCreate, db: Session = Depends(get_db)):
         nom_prenom=user_in.nom_prenom,
         type_utilisateur=user_in.type_utilisateur,
         status=StatusUtilisateur.EN_ATTENTE,
+        consentement_accepte=True,
+        consentement_date=datetime.utcnow(),
+        consentement_version=POLITIQUE_CONFIDENTIALITE_VERSION,
     )
     db.add(utilisateur)
     db.flush()

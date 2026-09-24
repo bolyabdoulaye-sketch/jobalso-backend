@@ -16,6 +16,9 @@ class UtilisateurCreate(BaseModel):
     mot_de_passe: str = Field(min_length=8)
     nom_prenom: str
     type_utilisateur: TypeUtilisateur
+    consentement_accepte: bool = Field(
+        description="L'utilisateur doit explicitement accepter la politique de confidentialité (Loi 25 / RGPD)"
+    )
 
     # Requis uniquement si type_utilisateur == RECRUTEUR
     entreprise: EntrepriseCreate | None = None
@@ -35,6 +38,9 @@ class UtilisateurRead(BaseModel):
     status: StatusUtilisateur
     date_creation: datetime
     must_change_password: bool
+    consentement_accepte: bool
+    consentement_date: datetime | None
+    consentement_version: str | None
 
     class Config:
         from_attributes = True

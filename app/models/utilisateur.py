@@ -37,6 +37,11 @@ class Utilisateur(Base):
     date_modification: Mapped[datetime | None] = mapped_column(DateTime, onupdate=datetime.utcnow, nullable=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # Consentement Loi 25 / RGPD (JA-009)
+    consentement_accepte: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    consentement_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    consentement_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
     # Relations
     candidat: Mapped["Candidat | None"] = relationship(back_populates="utilisateur", uselist=False)
     recruteur: Mapped["Recruteur | None"] = relationship(back_populates="utilisateur", uselist=False)
