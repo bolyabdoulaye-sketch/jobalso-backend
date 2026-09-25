@@ -35,7 +35,7 @@ def create_cv(
     while db.query(CV).filter(CV.code_cv == code).first():
         code = generate_code_cv()
 
-    cv = CV(
+        cv = CV(
         id_candidat=candidat.id_candidat,
         resume_cv=cv_in.resume_cv,
         experience=cv_in.experience,
@@ -44,6 +44,8 @@ def create_cv(
         domaine_etude=cv_in.domaine_etude,
         competences=cv_in.competences,
         certifications=cv_in.certifications,
+        localisation=cv_in.localisation,
+        type_poste_recherche=cv_in.type_poste_recherche,
         statut_cv="actif",
         code_cv=code,
     )

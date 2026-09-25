@@ -21,6 +21,10 @@ class CV(Base):
     competences: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     certifications: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # JA-036 : localisation et type de poste recherche
+    localisation: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    type_poste_recherche: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     cv_vector: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
     cv_hash: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
 

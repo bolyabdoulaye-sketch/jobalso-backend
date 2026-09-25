@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime, date
-from sqlalchemy import ForeignKey, String, Float, Boolean, Date, DateTime, Text
+
+from sqlalchemy import String, Float, Boolean, Date, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
+
 from app.db.base import Base
 
 
@@ -35,3 +37,6 @@ class Offre(Base):
     # Relations
     recruteur: Mapped["Recruteur"] = relationship(back_populates="offres")
     resultats: Mapped[list["Resultat"]] = relationship(back_populates="offre")
+    criteres: Mapped[list["CritereOffre"]] = relationship(
+        back_populates="offre", cascade="all, delete-orphan"
+    )

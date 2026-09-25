@@ -18,6 +18,7 @@ from app.models.statut_candidature import StatutCandidature
 from app.schemas.cv import generate_code_cv
 from app.schemas.public import PublicOffreRead, PostulerPublic, PostulerResponse
 from app.services.email_candidature import send_application_receipt_email
+from app.services.matching import calculer_score
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -112,16 +113,23 @@ def postuler(
         db.add(cv)
         db.flush()
 
+    # BUG CORRIGE : ce controle ne bloquait plus le doublon depuis JA-026
+    # (le "raise" avait disparu, seul le rollback restait). Sans ce blocage,
+    # un candidat pouvait postuler plusieurs fois a la meme offre.
     deja = db.query(Resultat).filter(
         Resultat.id_offre == offre.id_offre, Resultat.id_cv == cv.id_cv
     ).first()
     if deja:
         db.rollback()
         raise HTTPException(status_code=400, detail="Vous avez deja postule a cette offre")
+
+    # Score reel pondere par niveau de critere (JA-018/019/040)
+    score = calculer_score(cv, offre.criteres)
+
     resultat = Resultat(
         id_offre=offre.id_offre,
         id_cv=cv.id_cv,
-        score_sim=0.0,  # provisoire, comme pour le matching recruteur
+        score_sim=score,
         statut_candidature=StatutCandidature.RECUE.value,
     )
     db.add(resultat)

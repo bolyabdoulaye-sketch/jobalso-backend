@@ -10,6 +10,7 @@ from app.models.utilisateur import TypeUtilisateur, Utilisateur
 from app.models.recruteur import Recruteur
 from app.models.candidat import Candidat
 from app.models.offre import Offre
+from app.models.critere_offre import CritereOffre
 from app.models.cv import CV
 from app.models.resultat import Resultat
 from app.models.historique_statut import HistoriqueStatutCandidature
@@ -18,6 +19,7 @@ from app.schemas.offre import OffreCreate, OffreUpdate, OffreRead
 from app.schemas.resultat import MatchingRequest, ResultatRead
 from app.schemas.candidature import StatutUpdate
 from app.services.email import send_notification_email
+from app.services.matching import calculer_score
 
 router = APIRouter(prefix="/offres", tags=["offres"])
 
@@ -58,6 +60,18 @@ def create_offre(
         lien_token=generate_lien_token(db),
     )
     db.add(offre)
+    db.flush()
+
+    # Hierarchisation des criteres (JA-018/019)
+    for critere_in in offre_in.criteres:
+        db.add(
+            CritereOffre(
+                id_offre=offre.id_offre,
+                libelle=critere_in.libelle,
+                niveau=critere_in.niveau,
+            )
+        )
+
     db.commit()
     db.refresh(offre)
     return offre
@@ -147,14 +161,14 @@ def match_cv_to_offre(
     if existing:
         raise HTTPException(status_code=400, detail="Ce CV a deja ete evalue pour cette offre")
 
-    # TODO : remplacer par un vrai calcul de similarite cosinus entre cv_vector et offre_vector
-    # une fois l'integration UjuzAI disponible. En attendant, score provisoire.
-    score_provisoire = 0.0
+    # Score reel pondere par niveau de critere (JA-018/019/040). Renvoie 0.0
+    # si l'offre n'a aucun critere defini (comportement provisoire inchange).
+    score = calculer_score(cv, offre.criteres)
 
     resultat = Resultat(
         id_offre=offre.id_offre,
         id_cv=cv.id_cv,
-        score_sim=score_provisoire,
+        score_sim=score,
         statut_candidature=StatutCandidature.RECUE.value,
     )
     db.add(resultat)
