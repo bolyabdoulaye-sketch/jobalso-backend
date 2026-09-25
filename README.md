@@ -5,8 +5,9 @@
 - PostgreSQL 16 avec extension pgvector
 - MinIO (stockage S3-compatible pour les CV)
 - pgAdmin (administration de la base)
+- Mailpit (serveur SMTP de développement, capture les emails sans les envoyer)
 
-Tout tourne en conteneurs Docker : API, base de données, pgAdmin et MinIO.
+Tout tourne en conteneurs Docker : API, base de données, pgAdmin, MinIO et Mailpit.
 
 ## Prérequis
 - Docker Desktop installé et lancé
@@ -49,6 +50,33 @@ C'est prêt. L'API est accessible avec le rechargement automatique activé (`--r
 | pgAdmin | http://localhost:5050 | Voir `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` dans `.env` |
 | MinIO Console | http://localhost:9001 | Voir `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` dans `.env` |
 | Mailpit (emails de dev) | http://localhost:8025 | - |
+
+Mailpit remplace un vrai fournisseur d'emails en développement : tout email envoyé par l'API (bienvenue, accusé de réception, changement de statut, réinitialisation de mot de passe) apparaît dans cette boîte, sans jamais partir sur Internet. Quand un fournisseur définitif sera choisi, seules les variables `SMTP_*` dans `.env` changeront ; le code applicatif n'a pas à bouger.
+
+## Variables d'environnement notables
+
+En plus des identifiants Postgres/pgAdmin/MinIO habituels :
+
+| Variable | Rôle | Valeur par défaut |
+|---|---|---|
+| `SMTP_HOST` / `SMTP_PORT` | Serveur SMTP utilisé pour l'envoi d'emails | `mailpit` / `1025` (Docker) |
+| `SMTP_FROM` | Adresse d'expéditeur affichée | `no-reply@jobalso.com` |
+| `API_PUBLIC_URL` | Base des liens générés par l'API (désabonnement) | `http://localhost:8000` |
+| `FRONTEND_URL` | Base des liens vers le frontend (réinitialisation de mot de passe) | `http://localhost:3000` |
+
+## Aperçu des endpoints
+
+- `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `GET /api/v1/auth/me`
+- `POST /api/v1/auth/forgot-password`, `POST /api/v1/auth/reset-password` — mot de passe oublié (JA-004), lien à usage unique valable 30 minutes
+- `GET/POST /api/v1/auth/desabonnement` — désabonnement des notifications par email (JA-083, CASL)
+- `GET/POST/PUT/DELETE /api/v1/cv/...` — CV du candidat connecté
+- `GET/POST/PUT/DELETE /api/v1/offres/...` — offres du recruteur connecté
+- `POST /api/v1/offres/matching` — évaluation d'un CV par code, par le recruteur
+- `PATCH /api/v1/offres/resultats/{id}/statut` — changement de statut d'une candidature (JA-056), notifie le candidat par email (JA-057)
+- `GET /api/v1/candidatures/mes-candidatures` — suivi des candidatures du candidat connecté (JA-059)
+- `GET /api/v1/public/offres/{id}`, `POST /api/v1/public/offres/{id}/postuler` — candidature publique sans compte (JA-027), avec accusé de réception (JA-081)
+
+La documentation Swagger (http://localhost:8000/docs) reste la référence à jour pour les schémas de requête/réponse.
 
 ## Connecter pgAdmin à la base
 
@@ -102,4 +130,4 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-Dans ce cas, garder `db`, `pgadmin` et `minio` lancés via Docker (`docker-compose up -d db pgadmin minio`), mais adapter `DATABASE_URL` et `MINIO_ENDPOINT` dans `.env` pour utiliser `localhost` au lieu des noms de service Docker.
+Dans ce cas, garder `db`, `pgadmin`, `minio` et `mailpit` lancés via Docker (`docker-compose up -d db pgadmin minio mailpit`), mais adapter `DATABASE_URL`, `MINIO_ENDPOINT` et `SMTP_HOST`/`SMTP_PORT` dans `.env` pour utiliser `localhost` au lieu des noms de service Docker.
