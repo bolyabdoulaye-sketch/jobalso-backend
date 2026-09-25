@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, date
-from sqlalchemy import String, Text, Boolean, Float, Date, DateTime, ForeignKey
+from sqlalchemy import ForeignKey, String, Float, Boolean, Date, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
@@ -25,6 +25,9 @@ class Offre(Base):
     date_fin: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     resume_offre: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Lien de candidature publique unique et non devinable (JA-026)
+    lien_token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
 
     date_publication: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     date_modification: Mapped[datetime | None] = mapped_column(DateTime, onupdate=datetime.utcnow, nullable=True)

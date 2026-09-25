@@ -1,5 +1,4 @@
 import secrets
-import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -22,29 +21,29 @@ from app.services.email_candidature import send_application_receipt_email
 
 router = APIRouter(prefix="/public", tags=["public"])
 
-MESSAGE_SUCCES = "Votre candidature a bien été reçue. Un email de confirmation vous a été envoyé."
+MESSAGE_SUCCES = "Votre candidature a bien ete recue. Un email de confirmation vous a ete envoye."
 
 
-def _offre_active(offre_id: uuid.UUID, db: Session) -> Offre:
-    offre = db.query(Offre).filter(Offre.id_offre == offre_id, Offre.status.is_(True)).first()
+def _offre_active(token: str, db: Session) -> Offre:
+    offre = db.query(Offre).filter(Offre.lien_token == token, Offre.status.is_(True)).first()
     if not offre:
         raise HTTPException(status_code=404, detail="Offre introuvable ou fermee")
     return offre
 
 
-@router.get("/offres/{offre_id}", response_model=PublicOffreRead)
-def get_public_offre(offre_id: uuid.UUID, db: Session = Depends(get_db)):
-    return _offre_active(offre_id, db)
+@router.get("/offres/{token}", response_model=PublicOffreRead)
+def get_public_offre(token: str, db: Session = Depends(get_db)):
+    return _offre_active(token, db)
 
 
 # Candidature publique sans compte (JA-027) + accuse de reception (JA-081)
 @router.post(
-    "/offres/{offre_id}/postuler",
+    "/offres/{token}/postuler",
     response_model=PostulerResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def postuler(
-    offre_id: uuid.UUID,
+    token: str,
     data: PostulerPublic,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -53,7 +52,7 @@ def postuler(
     if data.site_web:
         return PostulerResponse(message=MESSAGE_SUCCES)
 
-    offre = _offre_active(offre_id, db)
+    offre = _offre_active(token, db)
 
     if not data.consentement_accepte:
         raise HTTPException(
@@ -119,7 +118,6 @@ def postuler(
     if deja:
         db.rollback()
         raise HTTPException(status_code=400, detail="Vous avez deja postule a cette offre")
-
     resultat = Resultat(
         id_offre=offre.id_offre,
         id_cv=cv.id_cv,

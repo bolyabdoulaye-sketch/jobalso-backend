@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from types import SimpleNamespace
 
@@ -28,6 +29,14 @@ def get_own_recruteur(current_user: Utilisateur, db: Session) -> Recruteur:
     return recruteur
 
 
+def generate_lien_token(db: Session) -> str:
+    """Genere un token unique et non devinable pour le lien de candidature publique (JA-026)."""
+    token = secrets.token_urlsafe(24)
+    while db.query(Offre).filter(Offre.lien_token == token).first():
+        token = secrets.token_urlsafe(24)
+    return token
+
+
 @router.post("/", response_model=OffreRead, status_code=status.HTTP_201_CREATED)
 def create_offre(
     offre_in: OffreCreate,
@@ -46,6 +55,7 @@ def create_offre(
         date_fin=offre_in.date_fin,
         resume_offre=offre_in.resume_offre,
         status=True,
+        lien_token=generate_lien_token(db),
     )
     db.add(offre)
     db.commit()
@@ -237,10 +247,10 @@ def update_statut_candidature(
         background_tasks.add_task(
             send_notification_email,
             dest,
-            "Mise à jour de votre candidature",
-            f"Bonjour,\n\nLe statut de votre candidature pour « {offre.titre_offre} » a changé : {libelle}.",
+            "Mise a jour de votre candidature",
+            f"Bonjour,\n\nLe statut de votre candidature pour « {offre.titre_offre} » a change : {libelle}.",
             f"<p>Bonjour,</p><p>Le statut de votre candidature pour « {offre.titre_offre} » "
-            f"a changé : <strong>{libelle}</strong>.</p>",
+            f"a change : <strong>{libelle}</strong>.</p>",
         )
 
     return resultat
