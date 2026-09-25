@@ -1,0 +1,55 @@
+# Ignorer les fichiers inutiles pour le build Docker
+.env
+.env.example
+.env.local
+.vibe
+.vibe/*
+.idea
+.idea/*
+__pycache__
+__pycache__/*
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache
+.pytest_cache/*
+.coverage
+.coverage*
+htmlcov
+.tox
+.nox
+.dist
+.build
+.egg*
+*.egg-info
+*.egg
+
+# Virtual environments
+mon_env
+venv
+ENV
+
+# Logs
+*.log
+logs
+logs/*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+docs
+*.md
+*.html
+jobalso-mvp V0.01.html
+
+# Test files (optional: uncomment if you don't want tests in the image)
+# tests
+# tests/*
+
+# Git
+git
+.git
+.git/*

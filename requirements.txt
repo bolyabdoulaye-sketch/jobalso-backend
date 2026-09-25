@@ -1,0 +1,27 @@
+# ── Framework web ────────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.19        # nécessaire pour les formulaires / upload de fichiers
+
+# ── Configuration ────────────────────────────────────────────────
+pydantic==2.10.3
+pydantic-settings==2.7.0
+email-validator==2.2.0          # requis par Pydantic EmailStr
+
+# ── Base de données ──────────────────────────────────────────────
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.3          # driver PostgreSQL
+asyncpg==0.31.0                 # driver PostgreSQL asynchrone pour FastAPI
+alembic==1.14.0
+pgvector==0.3.6                 # type vector() pour l'embedding candidat (JA-039)
+
+# ── Authentification ─────────────────────────────────────────────
+bcrypt==4.2.1                   # hachage des mots de passe (JA-003)
+pyjwt==2.10.1                   # JSON Web Token (JA-005)
+
+# ── Stockage objet ───────────────────────────────────────────────
+minio==7.2.13
+
+# ── Outils de développement (optionnel mais recommandé) ──────────
+pytest==8.3.4
+httpx==0.28.1                   # nécessaire pour tester les endpoints FastAPI

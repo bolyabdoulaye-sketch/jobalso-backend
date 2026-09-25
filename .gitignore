@@ -1,0 +1,22 @@
+# Environnement
+.env
+.venv/
+venv/
+mon_env/
+__pycache__/
+*.pyc
+
+# Docker
+db_data/
+minio_data/
+pgadmin_data/
+
+# IDE
+.vscode/
+.idea/
+
+# Alembic (les migrations restent versionnées, pas ce cache)
+alembic/__pycache__/
+
+# OS
+.DS_Store
