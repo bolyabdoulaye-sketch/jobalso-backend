@@ -1,18 +1,27 @@
 import io
 import zipfile
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy import select
+from fastapi.responses import StreamingResponse
+from minio import Minio
+from minio.error import S3Error
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from app.deps import get_current_candidat, get_db
-from app.models import CV, Candidat
-from app.schemas.cv_schemas import CVRead
-# Importation de votre module MinIO
-from app.services.minio_service import delete_cv, get_presigned_url, upload_cv
+from app.deps import get_current_candidat, get_current_user, get_db
+from app.models import (
+    CV, Candidat, Utilisateur, 
+    MiniTypeUtilisateurEnum, MiniStatusUtilisateurEnum,
+    Offre, Recruteur, Resultat
+)
+from app.schemas.cv_schemas import CVRead, ConsentementBanqueProfil, CandidatBanqueProfil
+from app.core.config import settings
+from app.core.storage import get_presigned_url, delete_cv
+from app.services.minio_service import upload_cv
 
 router = APIRouter(prefix="/cv", tags=["CVs Candidat"])
 
@@ -201,3 +210,143 @@ async def supprimer_mon_cv(
     # 2. Supprimer la ligne en BDD
     await db.delete(cv)
     await db.commit()
+
+
+@router.get("/{id_cv}/download")
+async def exporter_cv(
+    id_cv: UUID,
+    current_user: Utilisateur = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Télécharger un CV (fichier binaire).
+    Accessible par :
+    - Le candidat propriétaire
+    - Un recruteur si le candidat a postulé à une de ses offres
+    """
+    query = select(CV).where(CV.id_cv == id_cv)
+    result = await db.execute(query)
+    cv = result.scalar_one_or_none()
+
+    if not cv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="CV introuvable."
+        )
+
+    # Vérifier les autorisations
+    is_owner = False
+    is_recruteur_authorized = False
+
+    # Vérifier si c'est le candidat propriétaire
+    if current_user.type_utilisateur == MiniTypeUtilisateurEnum.candidat:
+        candidat_query = select(Candidat).where(
+            Candidat.id_utilisateur == current_user.id_utilisateur,
+            Candidat.id_candidat == cv.id_candidat
+        )
+        candidat_result = await db.execute(candidat_query)
+        if candidat_result.scalar_one_or_none():
+            is_owner = True
+
+    # Vérifier si c'est un recruteur avec accès
+    elif current_user.type_utilisateur == MiniTypeUtilisateurEnum.recruteur:
+        recruteur_query = select(Recruteur).where(
+            Recruteur.id_utilisateur == current_user.id_utilisateur
+        )
+        recruteur_result = await db.execute(recruteur_query)
+        recruteur = recruteur_result.scalar_one_or_none()
+
+        if recruteur:
+            # Vérifier si le CV a postulé à une offre de ce recruteur
+            resultat_query = select(Resultat).where(
+                Resultat.id_cv == id_cv,
+                Resultat.id_offre.in_(
+                    select(Offre.id_offre).where(Offre.id_recruteur == recruteur.id_recruteur)
+                )
+            )
+            resultat_result = await db.execute(resultat_query)
+            if resultat_result.scalar_one_or_none():
+                is_recruteur_authorized = True
+
+    if not is_owner and not is_recruteur_authorized:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous n'êtes pas autorisé à télécharger ce CV."
+        )
+
+    if not cv.url_cv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Le fichier CV n'est pas disponible."
+        )
+
+    # Récupérer le fichier depuis MinIO
+    try:
+        client = Minio(
+            settings.minio_endpoint,
+            access_key=settings.minio_root_user,
+            secret_key=settings.minio_root_password,
+            secure=settings.minio_secure,
+        )
+
+        response = client.get_object(settings.minio_bucket_cv, cv.url_cv)
+        data = response.read()
+        
+        # Déterminer l'extension du fichier
+        if cv.url_cv and '.' in cv.url_cv:
+            extension = cv.url_cv.split('.')[-1].lower()
+            if extension in ['pdf', 'doc', 'docx']:
+                filename = f"cv_{cv.id_cv}.{extension}"
+            else:
+                filename = f"cv_{cv.id_cv}.pdf"
+        else:
+            filename = f"cv_{cv.id_cv}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(data),
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Length": str(len(data))
+            }
+        )
+    except S3Error as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la récupération du CV : {str(e)}"
+        )
+
+
+@router.patch("/{id_cv}/toggle-banque", response_model=CVRead)
+async def toggle_consentement_banque_profils(
+    id_cv: UUID,
+    consentement: bool = Form(...),
+    current_candidat: Candidat = Depends(get_current_candidat),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Activer ou désactiver le consentement pour apparaître dans la banque de profils.
+    Seul le candidat propriétaire peut modifier ce consentement.
+    """
+    query = select(CV).where(
+        CV.id_cv == id_cv,
+        CV.id_candidat == current_candidat.id_candidat
+    )
+    result = await db.execute(query)
+    cv = result.scalar_one_or_none()
+
+    if not cv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="CV introuvable."
+        )
+
+    current_candidat.consentement_banque_profils = consentement
+    await db.commit()
+    await db.refresh(current_candidat)
+
+    cv_dto = CVRead.model_validate(cv)
+    if cv.url_cv:
+        cv_dto.url_presignee = await run_in_threadpool(get_presigned_url, cv.url_cv)
+
+    return cv_dto

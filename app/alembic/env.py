@@ -4,10 +4,10 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from app.core.config import settings
+from core.config import settings
 
-from app.models.base import Base
-from app.models.database import MiniStatusUtilisateurEnum, MiniTypeUtilisateurEnum, Candidat,Recruteur, Utilisateur, Entreprise, CV, Offre, Administrateur, Resultat
+from models.base import Base
+from models.database import MiniStatusUtilisateurEnum, MiniTypeUtilisateurEnum, Candidat,Recruteur, Utilisateur, Entreprise, CV, Offre, Administrateur, Resultat
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

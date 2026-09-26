@@ -57,3 +57,22 @@ def delete_cv(object_key: str) -> None:
     except S3Error as exc:
         if exc.code != "NoSuchKey":
             raise
+
+
+def upload_external_cv(filename: str, contenu: bytes, content_type: str) -> str:
+    """
+    Dépose un CV de candidat externe dans le bucket.
+    Utilise un préfixe 'externes/' pour différencier des CVs des candidats connectés.
+    Retourne la clé objet à stocker dans candidature.url_cv.
+    """
+    extension = filename.rsplit(".", 1)[-1].lower()
+    object_key = f"externes/{uuid.uuid4()}.{extension}"
+
+    _client.put_object(
+        BUCKET,
+        object_key,
+        data=io.BytesIO(contenu),
+        length=len(contenu),
+        content_type=content_type,
+    )
+    return object_key

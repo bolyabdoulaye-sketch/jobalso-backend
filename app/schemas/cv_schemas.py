@@ -55,3 +55,26 @@ class CVRead(CVBase):
     date_modification: Optional[datetime] = None
     url_presignee: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+# 5. Schéma pour le consentement banque de profils
+class ConsentementBanqueProfil(BaseModel):
+    consentement: bool = Field(..., description="True pour autoriser, False pour refuser")
+
+
+# 6. Schéma pour la banque de profils (recruteur)
+class CandidatBanqueProfil(BaseModel):
+    id_candidat: UUID
+    nom_prenom: str
+    email: str
+    resume_cv: Optional[str] = None
+    competences: Optional[List[str]] = None
+    experience: Optional[Any] = None
+    education: Optional[Any] = None
+    langues: Optional[Any] = None
+    domaine_etude: Optional[Any] = None
+    cv_id: Optional[UUID] = None
+    cv_url_presignee: Optional[str] = None
+    date_creation: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)

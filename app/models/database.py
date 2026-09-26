@@ -25,6 +25,13 @@ class MiniStatusUtilisateurEnum(str, enum.Enum):
     supprime = "supprime"
 
 
+class MiniEtapeCandidatureEnum(str, enum.Enum):
+    candidature = "candidature"
+    shortlist = "shortlist"
+    entretien = "entrevue"
+    decision = "decision"
+
+
 #les tables de la base de donnees
 
 class Utilisateur(Base):
@@ -79,11 +86,13 @@ class Candidat(Base):
     __tablename__= "candidat"
     id_candidat: Mapped[uuid.UUID]= mapped_column(UUID, primary_key=True, default=uuid.uuid4)
     id_utilisateur: Mapped[uuid.UUID]= mapped_column(UUID, ForeignKey("utilisateur.id_utilisateur", ondelete="CASCADE"), nullable=False)
+    consentement_banque_profils: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     __table_args__ = (UniqueConstraint("id_utilisateur"),)
 
     utilisateur: Mapped["Utilisateur"] = relationship("Utilisateur", back_populates="candidat")
     cvs: Mapped[List["CV"]] = relationship("CV", back_populates="candidat")
+    candidatures: Mapped[List["Candidature"]] = relationship("Candidature", back_populates="candidat")
 class Recruteur(Base):
     __tablename__= "recruteur"
     id_recruteur: Mapped[uuid.UUID]= mapped_column(UUID, primary_key=True, default=uuid.uuid4)
@@ -145,6 +154,7 @@ class Offre(Base):
     id_offre: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     id_recruteur: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("recruteur.id_recruteur", ondelete="CASCADE"), nullable=False)
     titre_offre: Mapped[str] = mapped_column(String, nullable=False)
+    public_token: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True, index=True)
     description: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     type_contrat: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     revenu: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -156,10 +166,12 @@ class Offre(Base):
     resume_offre: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     date_publication: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     date_modification: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    date_suppression: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     # Relations
     recruteur: Mapped["Recruteur"] = relationship("Recruteur", back_populates="offres")
     resultats: Mapped[List["Resultat"]] = relationship("Resultat", back_populates="offre")
+    candidatures: Mapped[List["Candidature"]] = relationship("Candidature", back_populates="offre")
 
 
 class Resultat(Base):
@@ -174,4 +186,33 @@ class Resultat(Base):
 
     # Relations
     offre: Mapped["Offre"] = relationship("Offre", back_populates="resultats")
-    cv: Mapped[Optional["CV"]] = relationship("CV", back_populates="resultats")   
+    cv: Mapped[Optional["CV"]] = relationship("CV", back_populates="resultats")
+
+
+class Candidature(Base):
+    __tablename__ = "candidature"
+
+    id_candidature: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id_offre: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("offre.id_offre", ondelete="CASCADE"), nullable=False)
+    id_candidat: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("candidat.id_candidat", ondelete="CASCADE"), nullable=True)
+    id_cv: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("cv.id_cv", ondelete="SET NULL"), nullable=True)
+    source_candidature: Mapped[str] = mapped_column(String(30), nullable=False, default="lien_public")
+    etape_courante: Mapped[MiniEtapeCandidatureEnum] = mapped_column(
+        SQLEnum(MiniEtapeCandidatureEnum), 
+        nullable=False, 
+        default=MiniEtapeCandidatureEnum.candidature
+    )
+    date_candidature: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    date_modification: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    url_cv: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Champs pour les candidats externes (non connectés)
+    nom_prenom: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    telephone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # Relations
+    offre: Mapped["Offre"] = relationship("Offre", back_populates="candidatures")
+    candidat: Mapped[Optional["Candidat"]] = relationship("Candidat", back_populates="candidatures")
+    cv: Mapped[Optional["CV"]] = relationship("CV")
