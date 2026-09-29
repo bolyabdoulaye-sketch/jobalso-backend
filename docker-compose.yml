@@ -1,27 +1,124 @@
 services:
+
   db:
     image: pgvector/pgvector:pg16
+    container_name: jobalso_db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: jobalso
-      POSTGRES_PASSWORD: jobalso_dev_password
-      POSTGRES_DB: jobalso_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - jobalso_network
 
-  minio:
-    image: quay.io/minio/minio:latest 
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: jobalso_pgadmin
+    restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: jobalso_minio
-      MINIO_ROOT_PASSWORD: jobalso_minio_password
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - jobalso_network
+
+
+  object_storage:
+    image: rustfs/rustfs:latest
+    container_name: jobalso_object_storage
+    restart: unless-stopped
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER}
+      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - miniodata:/data
-    command: server /data --console-address ":9001"
+      - objectdata:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -f http://127.0.0.1:9000/health || exit 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - jobalso_network
+
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: jobalso_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - jobalso_network
+
+
+  api:
+    build: .
+    container_name: jobalso_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+
+      SECRET_KEY: ${SECRET_KEY}
+
+      MINIO_ENDPOINT: object_storage:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      object_storage:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    volumes:
+      - .:/code
+    networks:
+      - jobalso_network
+
 
 volumes:
   pgdata:
-  miniodata:
+  objectdata:
+
+
+networks:
+  jobalso_network:

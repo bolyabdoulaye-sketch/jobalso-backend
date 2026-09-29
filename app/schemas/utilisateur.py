@@ -1,13 +1,9 @@
 import uuid
 from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field
+
 from app.models.utilisateur import TypeUtilisateur, StatusUtilisateur
-
-
-class EntrepriseCreate(BaseModel):
-    nom_entreprise: str
-    pays: str
-    localisation_entreprise: str | None = None
 
 
 class UtilisateurCreate(BaseModel):
@@ -16,14 +12,25 @@ class UtilisateurCreate(BaseModel):
     mot_de_passe: str = Field(min_length=8)
     nom_prenom: str
     type_utilisateur: TypeUtilisateur
+    consentement_accepte: bool = Field(
+        description=(
+            "L'utilisateur doit accepter la politique "
+            "de confidentialité."
+        )
+    )
 
-    # Requis uniquement si type_utilisateur == RECRUTEUR
-    entreprise: EntrepriseCreate | None = None
+    # Persona uniquement utilisé pour un compte recruteur.
+    # Il est enregistré au moment de la création du compte.
+    persona: str | None = None
 
 
 class UtilisateurLogin(BaseModel):
     email: EmailStr
     mot_de_passe: str
+
+
+class PersonaRecruteurRequest(BaseModel):
+    persona: str = Field(min_length=1)
 
 
 class UtilisateurRead(BaseModel):
@@ -35,6 +42,10 @@ class UtilisateurRead(BaseModel):
     status: StatusUtilisateur
     date_creation: datetime
     must_change_password: bool
+    consentement_accepte: bool
+    consentement_date: datetime | None
+    consentement_version: str | None
+    persona: str | None = None
 
     class Config:
         from_attributes = True

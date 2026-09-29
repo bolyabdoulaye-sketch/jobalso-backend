@@ -8,12 +8,12 @@ from alembic import context
 from app.core.config import settings
 from app.db.base import Base
 from app.models.utilisateur import Utilisateur  # noqa: F401
-from app.models.entreprise import Entreprise  # noqa: F401
 from app.models.candidat import Candidat  # noqa: F401
 from app.models.recruteur import Recruteur  # noqa: F401
 from app.models.cv import CV  # noqa: F401
 from app.models.offre import Offre  # noqa: F401
 from app.models.resultat import Resultat  # noqa: F401
+
 config = context.config
 
 if config.config_file_name is not None:
@@ -46,7 +46,8 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
         )
 
         with context.begin_transaction():

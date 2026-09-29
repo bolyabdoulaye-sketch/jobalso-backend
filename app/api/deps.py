@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.core.security import decode_access_token
-from app.models.utilisateur import Utilisateur
+from app.models.utilisateur import Utilisateur, StatusUtilisateur
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
@@ -38,6 +38,14 @@ def get_current_user(
     user = db.query(Utilisateur).filter(Utilisateur.id_utilisateur == user_id).first()
     if user is None:
         raise credentials_exception
+
+    # JA-007 : un jeton reste valable jusqu'a son expiration (30 min) meme si
+    # le compte est desactive/supprime entre-temps. On revalide le statut a
+    # chaque requete protegee, pas seulement a la connexion.
+    if user.status == StatusUtilisateur.SUPPRIME:
+        raise HTTPException(status_code=403, detail="Compte supprime")
+    if user.status == StatusUtilisateur.INACTIF:
+        raise HTTPException(status_code=403, detail="Compte inactif")
 
     return user
 
