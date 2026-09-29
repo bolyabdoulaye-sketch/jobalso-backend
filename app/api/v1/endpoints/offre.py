@@ -4,7 +4,12 @@ import uuid
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user, require_role
+from app.api.deps import (
+    get_db,
+    get_current_user,
+    get_current_organisation,
+    require_role,
+)
 from app.models.utilisateur import TypeUtilisateur, Utilisateur
 from app.models.recruteur import Recruteur
 from app.models.candidat import Candidat
@@ -14,10 +19,15 @@ from app.models.cv import CV
 from app.models.resultat import Resultat
 from app.models.historique_statut import HistoriqueStatutCandidature
 from app.models.statut_candidature import StatutCandidature, libelle_statut
+from app.models.organisation import Organisation
 from app.schemas.offre import OffreCreate, OffreUpdate, OffreRead
 from app.schemas.resultat import MatchingRequest, ResultatRead
 from app.schemas.candidature import StatutUpdate
-from app.services.matching import calculer_score, explication_matching, recalculer_resultats_offre
+from app.services.matching import (
+    calculer_score,
+    explication_matching,
+    recalculer_resultats_offre,
+)
 
 
 router = APIRouter(prefix="/offres", tags=["offres"])
@@ -59,12 +69,14 @@ def create_offre(
     current_user: Utilisateur = Depends(
         require_role(TypeUtilisateur.RECRUTEUR)
     ),
+    organisation: Organisation = Depends(get_current_organisation),
     db: Session = Depends(get_db),
 ):
     recruteur = get_own_recruteur(current_user, db)
 
     offre = Offre(
         id_recruteur=recruteur.id_recruteur,
+        id_organisation=organisation.id_organisation,
         titre_offre=offre_in.titre_offre,
         description=offre_in.description,
         type_contrat=offre_in.type_contrat,
@@ -103,13 +115,14 @@ def list_my_offres(
     current_user: Utilisateur = Depends(
         require_role(TypeUtilisateur.RECRUTEUR)
     ),
+    organisation: Organisation = Depends(get_current_organisation),
     db: Session = Depends(get_db),
 ):
-    recruteur = get_own_recruteur(current_user, db)
-
     return (
         db.query(Offre)
-        .filter(Offre.id_recruteur == recruteur.id_recruteur)
+        .filter(
+            Offre.id_organisation == organisation.id_organisation
+        )
         .all()
     )
 
@@ -121,11 +134,15 @@ def list_my_offres(
 def get_offre(
     offre_id: uuid.UUID,
     current_user: Utilisateur = Depends(get_current_user),
+    organisation: Organisation = Depends(get_current_organisation),
     db: Session = Depends(get_db),
 ):
     offre = (
         db.query(Offre)
-        .filter(Offre.id_offre == offre_id)
+        .filter(
+            Offre.id_offre == offre_id,
+            Offre.id_organisation == organisation.id_organisation,
+        )
         .first()
     )
 
@@ -149,13 +166,17 @@ def update_offre(
     current_user: Utilisateur = Depends(
         require_role(TypeUtilisateur.RECRUTEUR)
     ),
+    organisation: Organisation = Depends(get_current_organisation),
     db: Session = Depends(get_db),
 ):
     recruteur = get_own_recruteur(current_user, db)
 
     offre = (
         db.query(Offre)
-        .filter(Offre.id_offre == offre_id)
+        .filter(
+            Offre.id_offre == offre_id,
+            Offre.id_organisation == organisation.id_organisation,
+        )
         .first()
     )
 
@@ -213,13 +234,17 @@ def delete_offre(
     current_user: Utilisateur = Depends(
         require_role(TypeUtilisateur.RECRUTEUR)
     ),
+    organisation: Organisation = Depends(get_current_organisation),
     db: Session = Depends(get_db),
 ):
     recruteur = get_own_recruteur(current_user, db)
 
     offre = (
         db.query(Offre)
-        .filter(Offre.id_offre == offre_id)
+        .filter(
+            Offre.id_offre == offre_id,
+            Offre.id_organisation == organisation.id_organisation,
+        )
         .first()
     )
 
@@ -249,13 +274,17 @@ def match_cv_to_offre(
     current_user: Utilisateur = Depends(
         require_role(TypeUtilisateur.RECRUTEUR)
     ),
+    organisation: Organisation = Depends(get_current_organisation),
     db: Session = Depends(get_db),
 ):
     recruteur = get_own_recruteur(current_user, db)
 
     offre = (
         db.query(Offre)
-        .filter(Offre.id_offre == matching_in.id_offre)
+        .filter(
+            Offre.id_offre == matching_in.id_offre,
+            Offre.id_organisation == organisation.id_organisation,
+        )
         .first()
     )
 
@@ -352,13 +381,17 @@ def list_matching_results(
     current_user: Utilisateur = Depends(
         require_role(TypeUtilisateur.RECRUTEUR)
     ),
+    organisation: Organisation = Depends(get_current_organisation),
     db: Session = Depends(get_db),
 ):
     recruteur = get_own_recruteur(current_user, db)
 
     offre = (
         db.query(Offre)
-        .filter(Offre.id_offre == offre_id)
+        .filter(
+            Offre.id_offre == offre_id,
+            Offre.id_organisation == organisation.id_organisation,
+        )
         .first()
     )
 
@@ -428,6 +461,7 @@ def update_statut_candidature(
     current_user: Utilisateur = Depends(
         require_role(TypeUtilisateur.RECRUTEUR)
     ),
+    organisation: Organisation = Depends(get_current_organisation),
     db: Session = Depends(get_db),
 ):
     recruteur = get_own_recruteur(current_user, db)
@@ -446,7 +480,10 @@ def update_statut_candidature(
 
     offre = (
         db.query(Offre)
-        .filter(Offre.id_offre == resultat.id_offre)
+        .filter(
+            Offre.id_offre == resultat.id_offre,
+            Offre.id_organisation == organisation.id_organisation,
+        )
         .first()
     )
 
