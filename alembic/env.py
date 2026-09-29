@@ -1,4 +1,4 @@
-﻿from logging.config import fileConfig
+from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -7,12 +7,7 @@ from alembic import context
 
 from app.core.config import settings
 from app.db.base import Base
-from app.models.utilisateur import Utilisateur  # noqa: F401
-from app.models.candidat import Candidat  # noqa: F401
-from app.models.recruteur import Recruteur  # noqa: F401
-from app.models.cv import CV  # noqa: F401
-from app.models.offre import Offre  # noqa: F401
-from app.models.resultat import Resultat  # noqa: F401
+import app.models  # noqa: F401  (enregistre tous les modèles)
 
 config = context.config
 
@@ -45,6 +40,10 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # Le schéma initial utilise pgvector : l'extension doit exister avant.
+        connection.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector")
+        connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

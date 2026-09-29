@@ -1,19 +1,22 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from uuid import UUID
 
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_db,
-    get_current_user,
-    get_current_organisation,
     get_current_membership,
+    get_current_organisation,
     require_organisation_role,
+    require_role,
 )
+from app.core.dates import utcnow
+from app.core.rate_limit import check_rate_limit
+from app.models.offre import Offre
 from app.models.utilisateur import Utilisateur, TypeUtilisateur
 from app.models.organisation import Organisation
 from app.models.membre_organisation import (
@@ -22,9 +25,9 @@ from app.models.membre_organisation import (
 )
 from app.models.invitation_organisation import (
     InvitationOrganisation,
-    RoleInvitationOrganisation,
 )
 from app.schemas.organisation import (
+    OrganisationCreate,
     OrganisationRead,
     MembreOrganisationRead,
     InvitationOrganisationCreate,
@@ -32,6 +35,8 @@ from app.schemas.organisation import (
     InvitationAccept,
     OrganisationMemberDetail,
 )
+from app.services import comptes
+from app.services.email_compte import send_invitation_email
 
 
 router = APIRouter(
@@ -54,6 +59,49 @@ def generate_invitation_token(db: Session) -> str:
         token = secrets.token_urlsafe(32)
 
     return token
+
+
+@router.post(
+    "",
+    response_model=OrganisationRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_organisation(
+    data: OrganisationCreate,
+    current_user: Utilisateur = Depends(require_role(TypeUtilisateur.RECRUTEUR)),
+    db: Session = Depends(get_db),
+):
+    """
+    Cree une organisation pour un recruteur qui n'en a pas
+    (par exemple apres avoir ete retire d'une equipe).
+    """
+    if comptes.adhesion(db, current_user) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Vous etes deja membre d'une organisation",
+        )
+    organisation = comptes.creer_organisation(db, current_user, data.nom)
+    db.commit()
+    db.refresh(organisation)
+    return organisation
+
+
+@router.patch(
+    "",
+    response_model=OrganisationRead,
+)
+def rename_organisation(
+    data: OrganisationCreate,
+    organisation: Organisation = Depends(get_current_organisation),
+    membership: MembreOrganisation = Depends(
+        require_organisation_role(RoleOrganisation.ADMIN)
+    ),
+    db: Session = Depends(get_db),
+):
+    organisation.nom = data.nom.strip()
+    db.commit()
+    db.refresh(organisation)
+    return organisation
 
 
 @router.get(
@@ -121,6 +169,7 @@ def list_organisation_members(
 )
 def create_organisation_invitation(
     invitation_in: InvitationOrganisationCreate,
+    background_tasks: BackgroundTasks,
     organisation: Organisation = Depends(get_current_organisation),
     membership: MembreOrganisation = Depends(
         require_organisation_role(RoleOrganisation.ADMIN)
@@ -130,16 +179,24 @@ def create_organisation_invitation(
     """
     Cree une invitation pour rejoindre l'organisation.
 
-    Seul un ADMIN peut inviter un nouveau membre.
+    Seul un ADMIN peut inviter un nouveau membre. Le lien part par email :
+    le jeton n'est jamais renvoye par l'API.
     """
 
+    check_rate_limit(f"invitation:{organisation.id_organisation}", 30, 3600)
     email = invitation_in.email.strip().lower()
 
     existing_user = db.scalar(
         select(Utilisateur).where(
-            Utilisateur.email == email
+            func.lower(Utilisateur.email) == email
         )
     )
+
+    if existing_user and existing_user.type_utilisateur != TypeUtilisateur.RECRUTEUR:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Seul un compte recruteur peut rejoindre une organisation",
+        )
 
     if existing_user:
         existing_membership = db.scalar(
@@ -157,12 +214,15 @@ def create_organisation_invitation(
                 detail="Cet utilisateur est deja membre de l'organisation",
             )
 
+    now = utcnow()
+
     existing_invitation = db.scalar(
         select(InvitationOrganisation).where(
             InvitationOrganisation.id_organisation
             == organisation.id_organisation,
             InvitationOrganisation.email == email,
             InvitationOrganisation.date_utilisation.is_(None),
+            InvitationOrganisation.date_expiration > now,
         )
     )
 
@@ -174,7 +234,6 @@ def create_organisation_invitation(
 
     token = generate_invitation_token(db)
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
     expiration = now + timedelta(days=INVITATION_DURATION_DAYS)
 
     invitation = InvitationOrganisation(
@@ -190,6 +249,13 @@ def create_organisation_invitation(
     db.add(invitation)
     db.commit()
     db.refresh(invitation)
+
+    background_tasks.add_task(
+        send_invitation_email,
+        email,
+        organisation.nom,
+        comptes.url_front("invitation", token),
+    )
 
     return invitation
 
@@ -267,14 +333,18 @@ def cancel_organisation_invitation(
 )
 def accept_organisation_invitation(
     invitation_in: InvitationAccept,
-    current_user: Utilisateur = Depends(get_current_user),
+    current_user: Utilisateur = Depends(require_role(TypeUtilisateur.RECRUTEUR)),
     db: Session = Depends(get_db),
 ):
     """
     Accepte une invitation avec le token recu.
 
     Le compte connecte doit correspondre a l'adresse email invitee.
+    Un recruteur n'appartient qu'a une organisation : l'organisation creee
+    a son inscription est remplacee si elle est encore vide (lui seul, aucune
+    offre) ; sinon il doit d'abord la quitter.
     """
+    check_rate_limit(f"accept-invitation:{current_user.id_utilisateur}", 10, 900)
 
     invitation = db.scalar(
         select(InvitationOrganisation).where(
@@ -294,9 +364,9 @@ def accept_organisation_invitation(
             detail="Cette invitation a deja ete utilisee",
         )
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = utcnow()
 
-    if invitation.date_expiration <= now:
+    if invitation.date_expiration is None or invitation.date_expiration <= now:
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
             detail="Cette invitation a expire",
@@ -326,6 +396,30 @@ def accept_organisation_invitation(
             detail="Vous etes deja membre de cette organisation",
         )
 
+    actuelle = comptes.adhesion(db, current_user)
+    if actuelle is not None:
+        nb_membres = db.scalar(
+            select(func.count()).select_from(MembreOrganisation).where(
+                MembreOrganisation.id_organisation == actuelle.id_organisation
+            )
+        )
+        nb_offres = db.scalar(
+            select(func.count()).select_from(Offre).where(
+                Offre.id_organisation == actuelle.id_organisation
+            )
+        )
+        if nb_membres > 1 or nb_offres > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Vous appartenez deja a une organisation active. "
+                    "Quittez-la (POST /organisation/quitter) avant de rejoindre une autre equipe."
+                ),
+            )
+        ancienne = db.get(Organisation, actuelle.id_organisation)
+        db.delete(ancienne)
+        db.flush()
+
     membership = MembreOrganisation(
         id_organisation=invitation.id_organisation,
         id_utilisateur=current_user.id_utilisateur,
@@ -341,6 +435,43 @@ def accept_organisation_invitation(
     db.refresh(membership)
 
     return membership
+
+
+@router.post(
+    "/quitter",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def leave_organisation(
+    membership: MembreOrganisation = Depends(get_current_membership),
+    db: Session = Depends(get_db),
+):
+    """
+    Quitte l'organisation. Refuse si cela la laisserait sans administrateur
+    ou sans aucun membre (ses offres deviendraient inaccessibles).
+    """
+    autres = db.scalars(
+        select(MembreOrganisation).where(
+            MembreOrganisation.id_organisation == membership.id_organisation,
+            MembreOrganisation.id_utilisateur != membership.id_utilisateur,
+        )
+    ).all()
+
+    if not autres:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vous etes le seul membre : l'organisation ne peut pas rester vide",
+        )
+
+    if membership.role == RoleOrganisation.ADMIN and not any(
+        m.role == RoleOrganisation.ADMIN for m in autres
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nommez d'abord un autre administrateur",
+        )
+
+    db.delete(membership)
+    db.commit()
 
 
 @router.patch(

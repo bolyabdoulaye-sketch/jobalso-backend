@@ -11,6 +11,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.dates import utcnow
 from app.db.base import Base
 
 
@@ -63,7 +64,7 @@ class InvitationOrganisation(Base):
 
     date_creation: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utcnow,
         nullable=False,
     )
 

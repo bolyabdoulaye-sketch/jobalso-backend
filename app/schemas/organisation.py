@@ -1,10 +1,14 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.models.membre_organisation import RoleOrganisation
 from app.models.invitation_organisation import RoleInvitationOrganisation
+
+
+class OrganisationCreate(BaseModel):
+    nom: str = Field(min_length=2, max_length=255)
 
 
 class OrganisationRead(BaseModel):
@@ -37,14 +41,13 @@ class InvitationOrganisationRead(BaseModel):
     id_organisation: UUID
     email: EmailStr
     role: RoleInvitationOrganisation
-    token: str
     date_creation: datetime
     date_expiration: datetime
     date_utilisation: datetime | None = None
 
 
 class InvitationAccept(BaseModel):
-    token: str
+    token: str = Field(min_length=10, max_length=255)
 
 
 class OrganisationMemberDetail(BaseModel):

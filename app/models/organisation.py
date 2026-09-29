@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.dates import utcnow
 from app.db.base import Base
 
 
@@ -22,13 +23,13 @@ class Organisation(Base):
 
     date_creation: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utcnow,
         nullable=False,
     )
 
     date_modification: Mapped[datetime | None] = mapped_column(
         DateTime,
-        onupdate=datetime.utcnow,
+        onupdate=utcnow,
         nullable=True,
     )
 

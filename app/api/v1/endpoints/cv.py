@@ -1,27 +1,17 @@
-import io
-
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_role
+from app.core.rate_limit import check_rate_limit
+from app.core.storage import delete_file, get_download_url
 from app.models.utilisateur import TypeUtilisateur, Utilisateur
 from app.models.candidat import Candidat
 from app.models.cv import CV
 from app.schemas.cv import CVCreate, CVUpdate, CVRead, generate_code_cv
+from app.services.cv_upload import lire_fichier_borne, valider_et_stocker_cv
 from app.services.matching import recalculer_resultats_cv
-from app.services.extraction import extraire_donnees_cv, CVIllisibleError
-from app.core.storage import upload_file
 
 router = APIRouter(prefix="/cv", tags=["cv"])
-
-EXTENSIONS_AUTORISEES = {".pdf", ".docx"}
-TAILLE_MAX_OCTETS = 10 * 1024 * 1024  # 10 Mo (JA-030)
-
-# Signatures de fichier reelles (verification basique, pas un antivirus complet)
-SIGNATURES_VALIDES = {
-    ".pdf": [b"%PDF"],
-    ".docx": [b"PK\x03\x04"],  # .docx est une archive zip
-}
 
 
 def get_own_candidat(current_user: Utilisateur, db: Session) -> Candidat:
@@ -29,6 +19,13 @@ def get_own_candidat(current_user: Utilisateur, db: Session) -> Candidat:
     if not candidat:
         raise HTTPException(status_code=404, detail="Profil candidat introuvable")
     return candidat
+
+
+def nouveau_code_cv(db: Session) -> str:
+    code = generate_code_cv()
+    while db.query(CV).filter(CV.code_cv == code).first():
+        code = generate_code_cv()
+    return code
 
 
 @router.post("/", response_model=CVRead, status_code=status.HTTP_201_CREATED)
@@ -43,11 +40,6 @@ def create_cv(
     if existing:
         raise HTTPException(status_code=400, detail="Un CV existe deja pour ce candidat. Utilisez la modification.")
 
-    # Genere un code_cv unique
-    code = generate_code_cv()
-    while db.query(CV).filter(CV.code_cv == code).first():
-        code = generate_code_cv()
-
     cv = CV(
         id_candidat=candidat.id_candidat,
         resume_cv=cv_in.resume_cv,
@@ -60,7 +52,7 @@ def create_cv(
         localisation=cv_in.localisation,
         type_poste_recherche=cv_in.type_poste_recherche,
         statut_cv="actif",
-        code_cv=code,
+        code_cv=nouveau_code_cv(db),
     )
     db.add(cv)
     db.commit()
@@ -68,63 +60,51 @@ def create_cv(
     return cv
 
 
+# Fonction synchrone : FastAPI l'exécute dans un thread, la lecture du PDF et
+# l'envoi vers le stockage ne bloquent donc plus les autres requêtes.
 @router.post("/upload", response_model=CVRead, status_code=status.HTTP_200_OK)
-async def upload_cv(
+def upload_cv(
+    background_tasks: BackgroundTasks,
     fichier: UploadFile = File(...),
+    maj_competences: bool = Query(
+        True,
+        description="false : garde le résumé, les compétences et les langues déjà saisis",
+    ),
     current_user: Utilisateur = Depends(require_role(TypeUtilisateur.CANDIDAT)),
     db: Session = Depends(get_db),
 ):
     """Depot de CV en PDF/DOCX avec extraction automatique (JA-030, JA-031)."""
-    nom_fichier = fichier.filename or ""
-    extension = "." + nom_fichier.rsplit(".", 1)[-1].lower() if "." in nom_fichier else ""
-
-    if extension not in EXTENSIONS_AUTORISEES:
-        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF et DOCX sont acceptes")
-
-    contenu = await fichier.read()
-
-    if len(contenu) > TAILLE_MAX_OCTETS:
-        raise HTTPException(status_code=400, detail="Le fichier depasse la taille maximale de 10 Mo")
-    if len(contenu) == 0:
-        raise HTTPException(status_code=400, detail="Le fichier est vide")
-
-    # Controle de signature reelle du fichier (pas un antivirus complet, mais bloque
-    # les fichiers renommes/deguises avec une mauvaise extension)
-    signatures = SIGNATURES_VALIDES.get(extension, [])
-    if not any(contenu.startswith(sig) for sig in signatures):
-        raise HTTPException(
-            status_code=400,
-            detail="Le contenu du fichier ne correspond pas a son extension (fichier corrompu ou deguise)",
-        )
-
-    try:
-        donnees = extraire_donnees_cv(contenu, extension)
-    except CVIllisibleError as exc:
-        raise HTTPException(status_code=422, detail=f"CV illisible : {exc}")
-
-    content_type = "application/pdf" if extension == ".pdf" else (
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-    object_name = upload_file(io.BytesIO(contenu), extension, content_type)
-
+    check_rate_limit(f"upload-cv:{current_user.id_utilisateur}", 10, 3600)
     candidat = get_own_candidat(current_user, db)
-    cv = db.query(CV).filter(CV.id_candidat == candidat.id_candidat).first()
 
+    contenu = lire_fichier_borne(fichier)
+    donnees, object_name = valider_et_stocker_cv(contenu, fichier.filename or "")
+
+    cv = db.query(CV).filter(CV.id_candidat == candidat.id_candidat).first()
     if cv is None:
-        code = generate_code_cv()
-        while db.query(CV).filter(CV.code_cv == code).first():
-            code = generate_code_cv()
-        cv = CV(id_candidat=candidat.id_candidat, code_cv=code)
+        cv = CV(id_candidat=candidat.id_candidat, code_cv=nouveau_code_cv(db))
         db.add(cv)
 
-    cv.resume_cv = donnees["resume_cv"]
-    cv.competences = donnees["competences"]
-    cv.langues = donnees["langues"]
+    for champ in ("resume_cv", "competences", "langues"):
+        if maj_competences or not getattr(cv, champ):
+            setattr(cv, champ, donnees[champ])
+
+    ancien_fichier = cv.url_cv
     cv.url_cv = object_name
     cv.statut_cv = "actif"
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        delete_file(object_name)
+        raise
     db.refresh(cv)
+
+    # L'ancien fichier n'est plus référencé : on l'efface (Loi 25).
+    if ancien_fichier and ancien_fichier != object_name:
+        background_tasks.add_task(delete_file, ancien_fichier)
+    background_tasks.add_task(recalculer_resultats_cv, cv.id_cv)
     return cv
 
 
@@ -138,6 +118,19 @@ def get_my_cv(
     if not cv:
         raise HTTPException(status_code=404, detail="Aucun CV trouve pour ce candidat")
     return cv
+
+
+@router.get("/moi/fichier")
+def get_my_cv_file(
+    current_user: Utilisateur = Depends(require_role(TypeUtilisateur.CANDIDAT)),
+    db: Session = Depends(get_db),
+):
+    """Lien temporaire (15 min) pour télécharger le fichier du CV."""
+    candidat = get_own_candidat(current_user, db)
+    cv = db.query(CV).filter(CV.id_candidat == candidat.id_candidat).first()
+    if not cv or not cv.url_cv:
+        raise HTTPException(status_code=404, detail="Aucun fichier de CV")
+    return {"url": get_download_url(cv.url_cv, expires_seconds=900)}
 
 
 @router.put("/moi", response_model=CVRead)
@@ -168,10 +161,13 @@ def delete_my_cv(
     current_user: Utilisateur = Depends(require_role(TypeUtilisateur.CANDIDAT)),
     db: Session = Depends(get_db),
 ):
+    """Supprime le CV, son fichier et les candidatures qui l'utilisent (droit à l'effacement)."""
     candidat = get_own_candidat(current_user, db)
     cv = db.query(CV).filter(CV.id_candidat == candidat.id_candidat).first()
     if not cv:
         raise HTTPException(status_code=404, detail="Aucun CV trouve")
 
+    fichier = cv.url_cv
     db.delete(cv)
     db.commit()
+    delete_file(fichier)

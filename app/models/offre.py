@@ -14,6 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
 
+from app.core.dates import utcnow
 from app.db.base import Base
 
 
@@ -114,13 +115,13 @@ class Offre(Base):
 
     date_publication: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utcnow,
         nullable=False,
     )
 
     date_modification: Mapped[datetime | None] = mapped_column(
         DateTime,
-        onupdate=datetime.utcnow,
+        onupdate=utcnow,
         nullable=True,
     )
 
@@ -136,12 +137,17 @@ class Offre(Base):
         back_populates="offres",
     )
 
+    # Supprimer une offre supprime ses candidatures et leur historique
+    # (ON DELETE CASCADE en base).
     resultats: Mapped[list["Resultat"]] = relationship(
         back_populates="offre",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     criteres: Mapped[list["CritereOffre"]] = relationship(
         back_populates="offre",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 

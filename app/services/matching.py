@@ -19,9 +19,25 @@ SEUIL_FORTEMENT_RECOMMANDE = 88.0
 SEUIL_BON_MATCH = 72.0
 SEUIL_A_EXAMINER = 50.0
 
+# Catégories affichées par le front (clé, libellé), de la meilleure à la plus faible.
+CATEGORIES = [
+    (SEUIL_FORTEMENT_RECOMMANDE, "rec", "Fortement recommandés"),
+    (SEUIL_BON_MATCH, "good", "Bons matchs"),
+    (SEUIL_A_EXAMINER, "review", "À examiner"),
+    (0.0, "low", "Faible correspondance"),
+]
+
 # JA-040 — un critère obligatoire manquant empêche un profil d'atteindre
-# les catégories "Bons matchs" et "Fortement recommandéss".
+# les catégories "Bons matchs" et "Fortement recommandés".
 PLAFOND_MANDATOIRE_MANQUANT = SEUIL_BON_MATCH - 0.1
+
+
+def categorie_score(score: float) -> tuple[str, str]:
+    """Retourne (clé, libellé) de la catégorie d'un score 0–100."""
+    for seuil, cle, libelle in CATEGORIES:
+        if score >= seuil:
+            return cle, libelle
+    return CATEGORIES[-1][1], CATEGORIES[-1][2]
 
 
 def _normaliser(texte: str) -> str:
@@ -72,12 +88,14 @@ def evaluer_matching(cv: CV, criteres: list[CritereOffre]) -> dict:
 
     Le score est une moyenne pondérée par niveau. Un obligatoire manquant
     plafonne le score à 71,9 %, afin qu'il ne puisse pas être classé
-    "Bons matchs" ou "Fortement recommandéss".
+    "Bons matchs" ou "Fortement recommandés".
     """
     if not criteres:
+        # Sans critère, rien ne permet de classer : le profil est à examiner.
         return {
             "score": 0.0,
             "recommendation": "À examiner",
+            "categorie": "review",
             "criteres_valides": [],
             "ecarts": [],
             "obligatoires_manquants": [],
@@ -107,16 +125,12 @@ def evaluer_matching(cv: CV, criteres: list[CritereOffre]) -> dict:
     if obligatoires_manquants:
         score = min(score, PLAFOND_MANDATOIRE_MANQUANT)
 
-    if score >= SEUIL_FORTEMENT_RECOMMANDE:
-        recommendation = "Fortement recommandés"
-    elif score >= SEUIL_BON_MATCH:
-        recommendation = "Bons matchs"
-    else:
-        recommendation = "À examiner"
+    categorie, recommendation = categorie_score(score)
 
     return {
         "score": score,
         "recommendation": recommendation,
+        "categorie": categorie,
         "criteres_valides": criteres_valides,
         "ecarts": ecarts,
         "obligatoires_manquants": obligatoires_manquants,

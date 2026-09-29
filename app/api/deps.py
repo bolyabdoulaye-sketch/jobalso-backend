@@ -1,4 +1,5 @@
-﻿from typing import Generator
+import uuid
+from typing import Generator
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -7,12 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.core.security import decode_access_token
-from app.models.utilisateur import Utilisateur, StatusUtilisateur
+from app.models.utilisateur import Utilisateur, StatusUtilisateur, TypeUtilisateur
 from app.models.membre_organisation import (
     MembreOrganisation,
     RoleOrganisation,
 )
 from app.models.organisation import Organisation
+from app.models.recruteur import Recruteur
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
@@ -44,18 +46,18 @@ def get_current_user(
     if user_id is None:
         raise credentials_exception
 
-    user = (
-        db.query(Utilisateur)
-        .filter(Utilisateur.id_utilisateur == user_id)
-        .first()
-    )
+    user_uuid = _uuid_ou_none(user_id)
+    if user_uuid is None:
+        raise credentials_exception
+
+    user = db.get(Utilisateur, user_uuid)
 
     if user is None:
         raise credentials_exception
 
-    # JA-007 : un jeton reste valable jusqu'a son expiration (30 min) meme si
-    # le compte est desactive/supprime entre-temps. On revalide le statut a
-    # chaque requete protegee, pas seulement a la connexion.
+    # JA-007 : un jeton reste valable jusqu'a son expiration meme si le compte
+    # est desactive/supprime entre-temps. On revalide le statut a chaque
+    # requete protegee, pas seulement a la connexion.
     if user.status == StatusUtilisateur.SUPPRIME:
         raise HTTPException(status_code=403, detail="Compte supprime")
 
@@ -63,6 +65,13 @@ def get_current_user(
         raise HTTPException(status_code=403, detail="Compte inactif")
 
     return user
+
+
+def _uuid_ou_none(valeur: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(valeur))
+    except ValueError:
+        return None
 
 
 def require_role(*allowed_roles):
@@ -80,14 +89,28 @@ def require_role(*allowed_roles):
     return role_checker
 
 
+def get_current_recruteur(
+    current_user: Utilisateur = Depends(require_role(TypeUtilisateur.RECRUTEUR)),
+    db: Session = Depends(get_db),
+) -> Recruteur:
+    recruteur = db.scalar(
+        select(Recruteur).where(Recruteur.id_utilisateur == current_user.id_utilisateur)
+    )
+    if recruteur is None:
+        raise HTTPException(status_code=404, detail="Profil recruteur introuvable")
+    return recruteur
+
+
 def get_current_membership(
-    current_user: Utilisateur = Depends(get_current_user),
+    current_user: Utilisateur = Depends(require_role(TypeUtilisateur.RECRUTEUR)),
     db: Session = Depends(get_db),
 ) -> MembreOrganisation:
+    # Regle produit : un recruteur appartient a une seule organisation.
     membre = db.scalar(
-        select(MembreOrganisation).where(
-            MembreOrganisation.id_utilisateur == current_user.id_utilisateur
-        )
+        select(MembreOrganisation)
+        .where(MembreOrganisation.id_utilisateur == current_user.id_utilisateur)
+        .order_by(MembreOrganisation.date_ajout.asc())
+        .limit(1)
     )
 
     if membre is None:
@@ -103,11 +126,7 @@ def get_current_organisation(
     membership: MembreOrganisation = Depends(get_current_membership),
     db: Session = Depends(get_db),
 ) -> Organisation:
-    organisation = db.scalar(
-        select(Organisation).where(
-            Organisation.id_organisation == membership.id_organisation
-        )
-    )
+    organisation = db.get(Organisation, membership.id_organisation)
 
     if organisation is None:
         raise HTTPException(

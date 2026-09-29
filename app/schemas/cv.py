@@ -1,7 +1,7 @@
 import uuid
 import secrets
 from datetime import datetime
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field
 
 
 class CVCreate(BaseModel):
@@ -45,8 +45,7 @@ class CVRead(BaseModel):
     date_creation: datetime
     date_modification: datetime | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     @computed_field
     @property

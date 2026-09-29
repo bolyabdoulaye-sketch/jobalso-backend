@@ -3,7 +3,9 @@ import types
 
 # Le projet utilise pgvector côté production ; le module n'est pas nécessaire
 # pour tester la logique déterministe du moteur.
-if "pgvector.sqlalchemy" not in sys.modules:
+try:
+    import pgvector.sqlalchemy  # noqa: F401  (vrai module : les tests d'intégration en ont besoin)
+except ImportError:
     pgvector = types.ModuleType("pgvector")
     pgvector_sqlalchemy = types.ModuleType("pgvector.sqlalchemy")
     from sqlalchemy import JSON
@@ -98,11 +100,15 @@ def test_ja041_explicabilite_criteres_valides_et_ecarts():
 def test_ja042_tiers_documentes():
     fort = evaluer_matching(cv(), [critere("Python", NiveauCritere.OBLIGATOIRE)])
     bon = evaluer_matching(cv(), [critere("Python", NiveauCritere.OBLIGATOIRE), critere("Docker", NiveauCritere.SOUHAITABLE)])
-    examine = evaluer_matching(cv(), [critere("Docker", NiveauCritere.IMPORTANT), critere("Java", NiveauCritere.IMPORTANT)])
+    examine = evaluer_matching(cv(), [critere("Python", NiveauCritere.IMPORTANT), critere("Docker", NiveauCritere.IMPORTANT)])
+    faible = evaluer_matching(cv(), [critere("Docker", NiveauCritere.IMPORTANT), critere("Java", NiveauCritere.IMPORTANT)])
 
     assert fort["recommendation"] == "Fortement recommandés"
     assert bon["recommendation"] == "Bons matchs"
     assert examine["recommendation"] == "À examiner"
+    # 4e catégorie du front : moins de 50 %
+    assert faible["recommendation"] == "Faible correspondance"
+    assert [r["categorie"] for r in (fort, bon, examine, faible)] == ["rec", "good", "review", "low"]
 
 
 def test_ja044_recalcul_offre_est_idempotent(monkeypatch):

@@ -16,7 +16,7 @@ def send_password_reset_email(to: str, nom_prenom: str, reset_url: str) -> bool:
     html = (
         f"<p>Bonjour {escape(nom_prenom)},</p>"
         "<p>Vous avez demandé à réinitialiser votre mot de passe Jobalso.</p>"
-        f'<p><a href="{reset_url}">Réinitialiser mon mot de passe</a> (valable 30 minutes)</p>'
+        f'<p><a href="{escape(reset_url)}">Réinitialiser mon mot de passe</a> (valable 30 minutes)</p>'
         "<p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : "
         "votre mot de passe actuel reste inchangé.</p>"
         "<p>L'équipe Jobalso</p>"
