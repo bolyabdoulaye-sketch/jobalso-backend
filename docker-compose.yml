@@ -80,6 +80,26 @@ services:
       - jobalso_network
 
 
+  # Applique les migrations Alembic puis s'arrête ; l'API attend sa réussite.
+  migrate:
+    build: .
+    container_name: jobalso_migrate
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      MINIO_ENDPOINT: object_storage:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - jobalso_network
+
+
   api:
     build: .
     container_name: jobalso_api
@@ -100,17 +120,21 @@ services:
       SMTP_PORT: "1025"
 
       FRONTEND_URL: ${FRONTEND_URL}
+    # Développement : rechargement à chaud sur le code monté. L'image seule
+    # (production) démarre sans --reload.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]
     ports:
       - "8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       object_storage:
         condition: service_healthy
       mailpit:
         condition: service_started
     volumes:
-      - .:/code
+      - ./app:/code/app
+      - ./alembic:/code/alembic
     networks:
       - jobalso_network
 
