@@ -1,0 +1,21 @@
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+# Depends(...) en valeur par défaut est l'usage normal de FastAPI.
+ignore = ["B008", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Les tests unitaires existants chargent les modèles pour enregistrer les mappers
+# et remplacent des modules avant de les importer.
+"app/tests/**" = ["F401", "E402", "E701", "E702"]
+# Annotations en chaîne des relations SQLAlchemy ("Offre", "CV"...).
+"app/models/**" = ["F821"]

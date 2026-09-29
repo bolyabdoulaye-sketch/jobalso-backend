@@ -1,8 +1,13 @@
+.venv/
 venv/
 __pycache__/
 *.pyc
 .env
 .git/
+.github/
 uploads/
 .pytest_cache/
+.ruff_cache/
+app/tests/
+requirements-dev.txt
 README.md

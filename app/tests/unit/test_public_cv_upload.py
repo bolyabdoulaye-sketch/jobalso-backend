@@ -1,7 +1,9 @@
 import sys
 import types
 
-if "pgvector.sqlalchemy" not in sys.modules:
+try:
+    import pgvector.sqlalchemy  # noqa: F401  (vrai module : les tests d'intégration en ont besoin)
+except ImportError:
     pgvector = types.ModuleType("pgvector")
     pgvector_sqlalchemy = types.ModuleType("pgvector.sqlalchemy")
     from sqlalchemy import JSON
@@ -11,7 +13,9 @@ if "pgvector.sqlalchemy" not in sys.modules:
     sys.modules["pgvector.sqlalchemy"] = pgvector_sqlalchemy
 
 
-if "minio" not in sys.modules:
+try:
+    import minio  # noqa: F401
+except ImportError:
     minio = types.ModuleType("minio")
     class _Minio:
         def __init__(self, *args, **kwargs): pass

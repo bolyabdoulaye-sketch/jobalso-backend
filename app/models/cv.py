@@ -1,11 +1,12 @@
 import uuid
-from datetime import datetime, date
+from datetime import datetime
 
 from sqlalchemy import String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
 
+from app.core.dates import utcnow
 from app.db.base import Base
 
 
@@ -45,12 +46,12 @@ class CV(Base):
 
     date_creation: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utcnow,
         nullable=False,
     )
     date_modification: Mapped[datetime | None] = mapped_column(
         DateTime,
-        onupdate=datetime.utcnow,
+        onupdate=utcnow,
         nullable=True,
     )
     interview: Mapped[bool] = mapped_column(
@@ -66,4 +67,8 @@ class CV(Base):
 
     # Relations
     candidat: Mapped["Candidat"] = relationship(back_populates="cv")
-    resultats: Mapped[list["Resultat"]] = relationship(back_populates="cv")
+    resultats: Mapped[list["Resultat"]] = relationship(
+        back_populates="cv",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
